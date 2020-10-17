@@ -1,0 +1,1399 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}\usepackage{amsmath}\usepackage{proof}\usepackage{ upgreek }
+\usepackage{listings}
+\usepackage[shortlabels]{enumitem}
+\usepackage{fancyvrb}
+\usepackage{amsmath,amssymb,amsthm,textcomp}
+\usepackage{mdframed}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}{Corollary}[theorem]
+\newtheorem{lemma}[theorem]{Lemma}
+\usepackage{float}
+\usepackage{ stmaryrd }
+\usepackage{ textcomp }
+
+
+% Copied from ecoop paper
+\usepackage{microtype}%if unwanted, comment out or use option "draft"
+\usepackage{proof}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{listings}
+\usepackage{calc}
+\usepackage{url}
+\newcommand{\keywadj}[1]{\mathtt{#1}}
+\newcommand{\keyw}[1]{\keywadj{#1}~}
+\newcommand{\li}[1]{\lstinline{#1}}
+\newcommand{\m}[1]{\ \texttt{#1}\ }
+\newcommand{\todo}[1]{\textbf{[#1]}}
+\usepackage{float}
+
+
+
+
+
+
+\begin{document}
+
+\title{Unifying Algebraic with Abstract Effects}
+\maketitle
+
+
+\section{Surface language}
+\subsection{syntax}
+\begin{figure}[H]
+\small{
+\[
+\begin{array}{lll}
+\begin{array}{lllr}
+e & ::= & x & \mathit{expressions}\\
+& | & \keywadj{new}(x \Rightarrow \overline{d}) \\
+& | & e.m(e)\\
+& | & x.op(e)\\
+& | & handle \{ h \} e\\
+d & ::= & \keyw{def} m(x : \tau) :  \varepsilon ~\tau = e &
+\mathit{declarations}\\
+& |   & \keyw{effect} E = \overline{\keyw{o}} \\
+& |   & \keyw{effect} E = \varepsilon \\
+
+\end{array}
+\begin{array}{lllr}
+\varepsilon & ::= & \overline{x.E} & \mathit{effects}\\
+\tau & ::= & \{ x \Rightarrow \overline{\sigma} \} & \mathit{type}\\
+\sigma & ::= & \keyw{def} m(x : \tau) : \{\varepsilon\} ~\tau & \mathit{decl.~types}\\
+       & |   & \keyw{effect} E = \overline{\keyw{o}}\\
+       & |   & \keyw{effect} E = \varepsilon \\
+       & |   & \keyw{effect} E = \varepsilon \\
+     %  & |   & \keyw{effect} g = \{\varepsilon\} \leqslant \varepsilon' \\
+\keyw{o} & ::= & \keyw{def} op(x:\tau):  \tau & \mathit{operation}\\
+\keyw{h} & ::= & return\ x \rightarrow e & \mathit{handler}\\
+& | & x.op(x) \rightarrow e; h\\
+\
+\end{array}
+\end{array}
+\]
+}
+\caption{Syntax of surface language}
+\end{figure}
+
+The expression of the surface language contains variables, two basic object-oriented expressions: the \texttt{new} statement and the method call, the operation call \texttt{x.op(e)}, and handled expression \texttt{handle\{h\}e}. Objects are created by \texttt{new} statements that contain a variable x representing the current object along with a list of declarations.  Declarations come in three kinds: a method declaration, a effect member with operations, and an effect member with subeffects. Method declarations are annotated with a set of effects.  
+
+Object types are a collection of declaration types, which include method signatures and the types of effect-member declarations and definitions. Similar to the difference between the modules and their types, effects in an object must always be defined (i.e., has operations or subeffects), whereas effects in object types may or may not have definitions (i.e., be either abstract or concrete).
+
+The signature of effect is a list of operations. Each operation has an input type and an output type. The handler \texttt{h} must contain a \texttt{return} clause. 
+
+
+\subsection{Typing Rules}
+\begin{figure}[H]
+\footnotesize{
+\noindent$\fbox{$\Gamma \vdash e : \tau$}$
+\[
+\begin{array}{c}
+
+
+\infer[\textsc{(T-Var)}]
+  {\Gamma \vdash x : \{ \}~\tau}
+  {x : \tau \in \Gamma} \quad \quad
+~~~~~~~
+\infer[\textsc{(T-New)}]
+	{\Gamma \vdash \keywadj{new} (x \Rightarrow \overline{d}) : \{ \}~\{ x \Rightarrow \overline{\sigma} \}}
+	{\forall i,~d_i \in \overline{d},~\sigma_i \in \overline{\sigma},~\Gamma,~x : \{ x \Rightarrow \overline{\sigma} \} \vdash d_i : \sigma_i}\\[3ex]
+%~~~~~~~~~~
+\infer[\textsc{(T-Method)}]
+  {\Gamma \vdash e_1.m(e_2) : \{ \varepsilon \}~[e_1/x][e_2/y]\tau_1}
+  {\begin{gathered} \Gamma \vdash e_1 : \{ \varepsilon_1 \} \{ x \Rightarrow \overline{\sigma} \}\quad \keyw{def} m(y : \tau_2) : \{ \varepsilon_3 \}~\tau_1 \in \overline{\sigma}\\
+  \Gamma \vdash [e_1/x][e_2/y]\varepsilon_3~\mathit{wf}\quad \Gamma \vdash e_2 : \{ \varepsilon_2 \}~[e_1/x]\tau_2 \quad \varepsilon = \varepsilon_1 \cup \varepsilon_2 \cup [e_1/x][e_2/y]\varepsilon_3 \end{gathered}}\\[3ex]
+
+%~~~~~~~~~~
+\infer[\textsc{(T-Sub)}]
+  {\Gamma \vdash e : \{ \varepsilon_2 \}~\tau_2}
+  {\Gamma \vdash e : \{ \varepsilon_1 \}~\tau_1 & \Gamma \vdash \tau_1 <: \tau_2 & \Gamma \vdash \varepsilon_1 <: \varepsilon_2} \\[3ex]
+%~~~~~~~~~~
+
+\infer[\textsc{(T-Op)}]
+  {\Gamma \vdash x.op(e): \{x.E, \varepsilon\} \tau_2 }
+  {\Gamma \vdash x: \{\varepsilon\} \{y \Rightarrow \overline{\sigma}\} \quad
+   \keyw{effect} E = \overline{o} \in \overline{\sigma} \quad 
+   \keyw{def} op(z: \tau_1): \tau_2 \in \overline{o} \quad 
+   \Gamma \vdash e: \{\varepsilon \} \tau_1
+  }
+  \\[3ex]
+  
+  \infer[\textsc{(T-Handle)}]
+  {\Gamma \vdash \keyw{handle} \{x_1.op_1(y_1)\rightarrow e_1, ...., x_n.op_n(y_n)\rightarrow e_n, return\ z\rightarrow e_r\} e: \{\varepsilon\}\ \tau_r }
+  {\Gamma \vdash e: \{x.E, \varepsilon\}\ \tau \quad 
+  \Gamma \vdash findop(x.E) = \{x_1.op_1(y_1), \dots, x_n.op_n(y_n)\} \quad
+   \Gamma \vdash x_i.op_i(y_i) : \tau_i \rightarrow \tau_i'\\  
+   \Gamma, resume: \{\_ \Rightarrow \keyw{def} m(x: \tau_i') : \{\varepsilon\}\ \tau_r\} , y_i:\tau_i \vdash e_i: \{\varepsilon\}\ \tau_r \quad \Gamma, z:\tau \vdash e_r: \{\varepsilon\}\ \tau_r
+  }\\[3ex]
+\end{array}
+\]
+
+\noindent$\fbox{$\Gamma \vdash d : \sigma$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(DT-Def)}]
+  {\Gamma \vdash \keyw{def} m(x : \tau_1) : \{ \varepsilon \}~\tau_2 = e~:~\keyw{def} m(x : \tau_1) : \{ \varepsilon \}~\tau_2}
+  { \Gamma,~x : \tau_1 \vdash e : \{ \varepsilon \} & \Gamma, x : \tau_1 \vdash \varepsilon \mathit{wf}  }\\[3ex]
+
+\infer[\textsc{(DT-Effect-1)}]
+  {\Gamma \vdash \keyw{effect} g = \overline{o} ~:~\keyw{effect} g =  \overline{o} }
+  {} \quad \quad 
+  
+  
+\infer[\textsc{(DT-Effect-2)}]
+  {\Gamma \vdash \keyw{effect} g = \{ \varepsilon \}~:~\keyw{effect} g = \{ \varepsilon \}}
+  {\Gamma \vdash \varepsilon~\mathit{wf}}
+ 
+\end{array}
+\]
+
+}
+\caption{ type system}
+\label{f-declarative}
+\end{figure}
+
+
+Rules T-Var, T-New, T-Method, and T-Sub are standard object oriented typing judgments.  In rule T-OP, the type of the operation call is given by its signature, which is defined in its parent object. In rule T-Handle, the effect \texttt{x.E} is handled if the handler handles every operation in \texttt{x.E}. The expression in each handler clause may contain a \texttt{resume} function which serves as the continuation of the operation.  The \texttt{findop} function is defined in Fig. \ref{wrap-static}.
+
+
+
+\subsection{Subtyping} 
+
+\begin{figure}[H]
+\footnotesize{
+
+
+$\fbox{$\Gamma \vdash \tau <: \tau'$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(S-Refl1)}]
+  {\Gamma \vdash \tau <:\tau}
+  {}%\\[3ex]
+~~~~~~~~~~\hspace{10pt}
+\infer[\textsc{(S-Trans)}]
+  {\Gamma \vdash \tau_1 <: \tau_3}
+  {\Gamma \vdash \tau_1 <: \tau_2 & \Gamma \vdash \tau_2 <: \tau_3}\\[3ex]
+
+\infer[\textsc{(S-Perm)}]
+  {\Gamma \vdash \{ x \Rightarrow \sigma_i^{i \in 1..n} \} <: \{ x \Rightarrow \sigma_i'^{i \in 1..n} \}}
+  {\{ x \Rightarrow \sigma_i^{i \in 1..n} \}~\mathit{is~a~permutation~of}~\{ x \Rightarrow \sigma_i'^{i \in 1..n} \}}\\[3ex]
+%~~~~~~~~~~
+\infer[\textsc{(S-Width)}]
+  {\Gamma \vdash \{ x \Rightarrow \sigma_i^{i \in 1..n + k} \} <: \{ x \Rightarrow \sigma_i^{i \in 1..n} \}}
+  {} \quad 
+%~~~~~~~~~~
+\infer[\textsc{(S-Depth)}]
+  {\Gamma \vdash \{ x \Rightarrow \sigma_i^{i \in 1..n} \} <: \{ x \Rightarrow {\sigma'}_i^{i \in 1..n} \}}
+  {\forall i,~\Gamma,~x : \{ x \Rightarrow {\sigma}_i^{i \in 1..n} \} \vdash \sigma_i <: \sigma_i'}
+
+\end{array}
+\]
+
+
+\noindent$\fbox{$\Gamma \vdash \sigma <: \sigma'$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(S-Refl2)}]
+  {\Gamma \vdash \sigma <: \sigma}
+  {} \quad
+%~~~~~
+\infer[\textsc{(S-Def)}]
+  {\Gamma \vdash \keyw{def} m(x : \tau_1) : \{ \varepsilon_1 \}~\tau_2 <: \keyw{def} m(x : \tau_1') : \{ \varepsilon_2 \}~\tau_2'}
+  {\Gamma \vdash \tau_1' <: \tau_1 & \Gamma \vdash \tau_2 <: \tau_2' & \Gamma, x : \tau_1 \vdash \varepsilon_1 <: \varepsilon_2 }\\[3ex]
+
+\infer[\textsc{(S-Effect)}]
+  {\Gamma \vdash \keyw{effect} g = \{ \varepsilon \} <: \keyw{effect} g}
+  {}\quad
+  
+  
+  
+\end{array}
+\]
+
+
+\noindent$\fbox{$\Gamma \vdash \varepsilon <: \varepsilon'$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(SE-Refl)}]
+  {\Gamma \vdash \varepsilon_1 <: \varepsilon_2}
+  {\varepsilon_1  \subseteq \varepsilon_2} \quad
+%~~~~~
+\infer[\textsc{(SE-Left)}]
+  {\Gamma \vdash \varepsilon \cup \{x.E\} <: \varepsilon' }
+  {\Gamma \vdash x : \{y \Rightarrow \overline{\sigma}\} & \keyw{effect} E = \varepsilon'' \in \overline{\sigma} & \varepsilon \cup  \varepsilon'' <: \varepsilon'  } \\[3ex]
+  
+\infer[\textsc{(SE-Right)}]
+  {\Gamma \vdash \varepsilon <: \varepsilon' \cup \{x.E\}}
+  {\Gamma \vdash x : \{y \Rightarrow \overline{\sigma}\} & \keyw{effect} E = \varepsilon'' \in \overline{\sigma} & \varepsilon  <: \varepsilon' \cup \varepsilon''  } 
+  
+  
+\end{array}
+\]
+
+}
+\caption{Subtyping Rules}
+\end{figure}
+
+The subtyping rules for object types are standard. in rule S-Effect , the effect set declaration is a subtype of an abstract effect declaration. The subtyping rules for effect sets (SE-Refl, SE-Left, SE-Right) states that an effect set is a subeffect of another if it is a subset, or becomes a subeffect by replacing an element in either effect sets according to declarations.
+
+\pagebreak
+\subsection{Abstraction problem}
+\begin{verbatim}
+
+
+type A
+  effect E {
+    op1() : Unit
+  }
+  
+module a: A
+  effect E {
+    op1(): Unit
+  }
+
+type B
+  effect E 
+  def handler(Unit -> {this.E} T) : {} T
+  
+module b: B
+  effect E = {a.E}
+  def m() : {this.E} Unit
+    a.op1()
+  def handler(c: Unit -> {this.E} T) : {} T = 
+    handle c() with
+    | a.op1() -> resume ()
+
+(b >> B).handler(
+  () => handle (b >> B).m() with
+          | a.op1() -> ()
+ )
+
+ 
+ 
+ 
+ 
+ 
+\end{verbatim}
+
+In the last expression, the method call \texttt{b.m()} handled by two nested handlers. Since the effect of \texttt{b.m} is abstract, the inner handler should not handle the expression because it handles the concrete effect \texttt{a.E}. Instead, the operation in \texttt{b.m()} should be handled by the outer handler.
+
+In order to solve this problem, we introduce the language with the \texttt{wrap} and \texttt{unwrap} constructs to ensure the correctness of dynamic semantics.
+
+
+\pagebreak
+\subsection{Abstraction Problem II}
+\begin{verbatim}
+type B
+  effect E {
+  	def op() : Unit
+  }
+
+module b : B
+  ...
+
+type A
+  effect E 
+  def handle[F](c: Unit -> {F, this.E} Unit): {F} Unit
+  def m(): {this.E} Unit
+  
+module a: A
+  effect E = {b.E}
+  def handle[F](c: Unit -> {F, this.E} Unit): {F} Unit
+     handle
+       c()
+     with
+       b.op() -> resume ()
+  def m(): {this.E} Unit
+     b.op()
+  
+//Client1: Prints nothing
+handle 
+  a.handle[b.E] (
+     () => b.op(); a.m()
+  )
+with
+    b.op() -> print "desired output"
+
+//Client2: Prints "desired output"
+handle 
+  a.handle[c.E] (
+     () => c.op(); a.m()
+  )
+with
+    c.op() -> print "desired output"
+    
+\end{verbatim}
+\newpage
+
+We translate module a in the following manner
+\begin{verbatim}
+module a: A
+  effect E = {b.E}
+  def handle(x: {_ => effect E}, c: Unit -> {x.E, this.E} Unit): {x.E} Unit
+    unwrap{x.E} (
+       handle
+         c()
+       with
+         b.op() -> resume ()
+     )
+  def m(): {this.E} Unit
+     b.op()
+\end{verbatim}
+
+We translate the polymorphic call
+\begin{verbatim}
+a.handle[y.E](c)
+\end{verbatim}
+as
+\begin{verbatim}
+val x = new
+  effect E = y.E
+unwrap{x.E}(a.handle(x:  {_ => effect E}, c))
+\end{verbatim}
+Now we evaluate client1:
+\begin{verbatim}
+handle 
+  a.handle[b.E] (
+     () => b.op(); a.m()
+  )
+with
+  b.op() -> print "desired output"
+---->
+handle 
+  let b' = b:{_ => effect E{...}}>>{_ => effect E} in
+  a.handle(b', () => b'.op(); a.m())
+with
+  b.op() -> print "desired output"
+---->
+handle 
+  unwrap{b.E}(
+    handle
+      unwrap{a.E}(wrap{b.E}(b.op); wrap{a.E}(b.op))
+    with
+      b.op() -> resume ()
+  )
+with
+  b.op() -> print "desired output"
+--->
+handle 
+  unwrap{b.E}(unwrap{a.E}(wrap{b.E}(b.op); ())
+with
+  b.op() -> print "desired output"
+\end{verbatim}
+
+\pagebreak
+\section{Language with wrap}
+\subsection{syntax}
+\begin{figure}[H]
+\small{
+\[
+\begin{array}{lll}
+\begin{array}{lllr}
+v & ::= & l & \mathit{values}\\
+& | & v : \tau \gg \tau  & \mathit{coercion}\\
+& | & \keyw{unwrap}(v) \\
+e & ::= & x & \mathit{expressions}\\
+& | & v \\
+& | & \keywadj{new}(x \Rightarrow \overline{d}) \\
+& | & e.m(e)\\
+& | & x.op(e)\\
+& | & handle \{ h \} e\\
+& | & \keyw{wrap}_{l.E}(e) \\
+& | & \keyw{unwrap}_{l.E}(e)\\
+& | & e : \tau \gg \tau & \mathit{ coercion}\\
+d & ::= & \keyw{def} m(x : \tau) :  \{\varepsilon\} ~\tau = e &
+\mathit{declarations}\\
+& |   & \keyw{effect} E = \overline{\keyw{o}} \\
+& |   & \keyw{effect} E = \varepsilon \\
+
+
+\end{array}
+\begin{array}{lllr}
+
+
+\varepsilon & ::= & \overline{x.E} & \mathit{effects}\\
+\tau & ::= & \{ x \Rightarrow \overline{\sigma} \} & \mathit{type}\\
+\sigma & ::= & \keyw{def} m(x : \tau) : \{\varepsilon\} ~\tau & \mathit{decl.~types}\\
+       & |   & \keyw{effect} E = \overline{\keyw{o}}\\
+       & |   & \keyw{effect} E = \varepsilon\\
+       & |   & \keyw{effect} E \\
+     %  & |   & \keyw{effect} g = \{\varepsilon\} \leqslant \varepsilon' \\
+\keyw{o} & ::= & \keyw{def} op(x:\tau):  \tau & \mathit{operation}\\
+\keyw{h} & ::= & return\ x \rightarrow e & \mathit{handler}\\
+& | & x.op(x) \rightarrow e; h \\
+\Gamma & ::= & \emptyset \mid \Gamma, x:\tau & \mathit{typing\ context}\\
+\mu & ::= & \emptyset \mid \mu, l \mapsto \{x \rightarrow \overline{d}\} & \mathit{store}\\
+\Sigma & ::= & \emptyset \mid \Sigma, l : \tau & \mathit{store\ context}\\
+
+
+\
+\end{array}
+\end{array}
+\]
+}
+\caption{Language with wrap}
+\end{figure}
+
+In this language, we add locations $l$, type coercions $e: \tau \gg \tau$, wraped expression $\keyw{wrap}_{l.E}(e)$, and unwrapped expression $\keyw{unwrap}_{l.E}(e)$. Type coercions are added by the translation rules in section \ref{sec-translation}. Wraps and unwraps changes the dynamic of the program as shown in section \ref{sec-dynamic}. Every objects evaluates to a value. A value can be a location, a coerced value, or an unwrapped value.
+
+
+\subsection{ Static Semantics}
+\begin{figure}[H]
+\footnotesize{
+\noindent$\fbox{$\Gamma \vdash e : \tau$}$
+\[
+\begin{array}{c}
+
+\infer[\textsc{(T-Loc')}]
+  {\Gamma \mid \Sigma \vdash l : \{ \}~\tau}
+  {l:\tau \in \Sigma } \quad \quad 
+  
+\infer[\textsc{(T-Var')}]
+  {\Gamma \mid \Sigma \vdash x : \{ \}~\tau}
+  {x : \tau \in \Gamma \mid \Sigma} \\[3ex]
+~~~~~~~
+\infer[\textsc{(T-New')}]
+	{\Gamma \mid \Sigma \vdash \keywadj{new} (x \Rightarrow \overline{d}) : \{ \}~\{ x \Rightarrow \overline{\sigma} \}}
+	{\forall i,~d_i \in \overline{d},~\sigma_i \in \overline{\sigma},~\Gamma,~x : \{ x \Rightarrow \overline{\sigma} \} \mid \Sigma \vdash d_i : \sigma_i}\\[3ex]
+%~~~~~~~~~~
+\infer[\textsc{(T-Method')}]
+  {\Gamma \mid \Sigma \vdash e_1.m(e_2) : \{ \varepsilon \}~[e_1/x][e_2/y]\tau_1}
+  {\begin{gathered} \Gamma \mid \Sigma \vdash e_1 : \{ \varepsilon_1 \} \{ x \Rightarrow \overline{\sigma} \}\quad \keyw{def} m(y : \tau_2) : \{ \varepsilon_3 \}~\tau_1 \in \overline{\sigma}\\
+  \Gamma \mid \Sigma \vdash [e_1/x][e_2/y]\varepsilon_3~\mathit{wf}\quad \Gamma \mid \Sigma \vdash e_2 : \{ \varepsilon_2 \}~[e_1/x]\tau_2 \quad \varepsilon = \varepsilon_1 \cup \varepsilon_2 \cup [e_1/x][e_2/y]\varepsilon_3 \end{gathered}}\\[3ex]
+%~~~~~~~~~~
+
+\infer[\textsc{(T-Sub')}]
+  {\Gamma \mid \Sigma \vdash e : \{ \varepsilon_2 \}~\tau_2}
+  {\Gamma \mid \Sigma \vdash e : \{ \varepsilon_1 \}~\tau_1 & \Gamma \mid \Sigma \vdash \tau_1 <: \tau_2 & \Gamma \mid \Sigma \vdash \varepsilon_1 <: \varepsilon_2} \\[3ex]
+%~~~~~~~~~~
+
+\infer[\textsc{(T-op')}]
+  {\Gamma \mid \Sigma \vdash x.op(e): \{x.E, \varepsilon\} \tau _2}
+  {\Gamma \mid \Sigma \vdash x:  \{x \Rightarrow \overline{\sigma}\} \quad
+   \keyw{effect} E = \overline{o} \in \overline{\sigma} \quad 
+   \keyw{def} op(y: \tau_1): \tau_2 \in \overline{o} \quad 
+   \Gamma \mid \Sigma \vdash e: \{\varepsilon \} \tau_1
+  }
+  \\[3ex]
+  
+  \infer[\textsc{(T-handle')}]
+  {\Gamma \mid \Sigma \vdash \keyw{handle} \{x_1.op_1(y_1)\rightarrow e_i, ...., x_n.op_n(y_n)\rightarrow e_n, return\ x\rightarrow e_r\} e: \{\varepsilon\}\ \tau_r }
+  {\Gamma \mid \Sigma \vdash e: \{x.E, \varepsilon\}\ \tau \quad 
+  \Gamma \mid \Sigma \vdash findop(x.E) = \{ x_1.op_1(y_1), \dots, x_n.op_n(y_n)\} \quad
+   \Gamma \mid \Sigma \vdash x_i.op_i(y_n) : \tau_i \rightarrow \tau_i'\\  
+   \Gamma, resume: \{\_ \Rightarrow \keyw{def} m(z: \tau_i') : \{\varepsilon\}\ \tau_r\} , y_i:\tau_i \mid \Sigma \vdash e_i: \{\varepsilon\}\ \tau_r \quad \Gamma, x:\tau \mid \Sigma \vdash e_r: \{\varepsilon\}\ \tau_r
+  }\\[3ex]
+  
+    \infer[\textsc{(T-wrap-coercion')}]
+  {\Gamma \mid \Sigma \vdash (e : \tau_1 \gg \tau_2) :  \{\varepsilon\} \ \tau_2}
+  {\Gamma \mid \Sigma \vdash e :  \{\varepsilon\}\ \tau_1 & \Gamma \mid \Sigma \vdash \tau_1 <: \tau_2} \\[3ex]
+  
+%      \infer[\textsc{(T-unwrap-coercion')}]
+%  {\Gamma \mid \Sigma \vdash ([e]_{l.E}) :  \{\varepsilon\}\ \tau}
+%  {\Gamma \mid \Sigma \vdash e : \{\varepsilon\} \ \tau } \\[3ex]
+  
+  
+      \infer[\textsc{(T-wrap')}]
+  {\Gamma \mid \Sigma \vdash \keyw{wrap}_\varepsilon(e) : \{\varepsilon\}\ \tau}
+  {\Gamma \mid \Sigma \vdash e : \{\varepsilon\}\  \tau} \quad 
+  
+      \infer[\textsc{(T-unwrap')}]
+  {\Gamma \mid \Sigma \vdash \keyw{unwrap}_\varepsilon(e) :   \{\varepsilon\}\ \tau}
+  {\Gamma \mid \Sigma \vdash e : \{\varepsilon\}\ \tau} \\[3ex]
+\end{array} \\[3ex]
+\]
+}
+
+\noindent$\fbox{$\Gamma \vdash d : \sigma$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(DT-Def')}]
+  {\Gamma \mid \Sigma \vdash \keyw{def} m(x : \tau_1) : \{ \varepsilon \}~\tau_2 = e~:~\keyw{def} m(x : \tau_1) : \{ \varepsilon \}~\tau_2}
+  { \Gamma,~x : \tau_1 \mid \Sigma \vdash e : \{ \varepsilon \} & \Gamma, x : \tau_1 \mid \Sigma \vdash \varepsilon~ \mathit{wf}  }\\[3ex]
+
+\infer[\textsc{(DT-Effect-1')}]
+  {\Gamma \mid \Sigma \vdash \keyw{effect} g = \overline{o} ~:~\keyw{effect} g =  \overline{o} }
+  {} \quad \quad 
+  
+  
+\infer[\textsc{(DT-Effect-2')}]
+  {\Gamma\mid \Sigma \vdash \keyw{effect} g = \{ \varepsilon \}~:~\keyw{effect} g = \{ \varepsilon \}}
+  {\Gamma\mid \Sigma \vdash \varepsilon~\mathit{wf}}
+ 
+\end{array}\\[3ex]
+\]
+
+
+
+\noindent$\fbox{$\mu : \Sigma $}$
+\[
+\begin{array}{c}
+      \infer[\textsc{(T-store)}]
+  {\mu : \Sigma}
+  {\forall l \in \mu, ( l \mapsto \{x \rightarrow \overline{d}\} \in \mu & l:\{x\rightarrow \overline{\sigma}\} \in \Sigma & \forall d_i\in \overline{d},\ x:\{x \rightarrow \sigma_i\} \mid \Sigma \vdash d_i : \sigma_i	)} 
+\end{array} \\[3ex]
+\]
+
+\noindent$\fbox{$\Gamma \mid \Sigma \vdash findop(x.E) = \{...\} $}$
+\[
+\begin{array}{c}
+      \infer[\textsc{(T-find-1)}]
+  {\Gamma \mid \Sigma \vdash findop(x.E) = \{x.o \mid o \in \overline{o}\} }
+  {\Gamma \mid \Sigma \vdash x : \{y \Rightarrow \overline{d}\} & \keyw{effect} E = \overline{o}} \\[3ex]
+        \infer[\textsc{(T-find-2)}]
+  {\Gamma \mid \Sigma \vdash findop(x.E) = s_1 \cup \dots \cup s_n }
+  {\Gamma \mid \Sigma \vdash x : \{y \Rightarrow \overline{d}\} & \keyw{effect} E = \{x_1.E_1, \dots, x_n.E_n\} & \forall i \in [1, n], \Gamma \mid \Sigma \vdash findop(x_i.E_i) = s_i} 
+\end{array} 
+\]
+
+\caption{Static Semantics}
+\label{wrap-static}
+\end{figure}
+
+
+
+\subsection{Dynamic Semantics}
+\label{sec-dynamic}
+\begin{figure}[H]
+\flushleft
+
+
+
+\footnotesize{
+
+\[
+\begin{array}{lll}
+\begin{array}{lllr}
+E & ::= & [~] & \mathit{evaluation~context}\\
+  & |   & E.m(e)\\
+	  & |   & v.m(E)\\
+	  & |   & E.op(e)\\
+	  & |   &  v.op(E)\\
+  & |   & handle\{E\}e \\
+
+  & |   & handle\{h\}E \\
+  & | & \keyw{wrap}_{l.F}(E)\\
+  & | & \keyw{unwrap}_{l.F}(E)\\
+  & | & E : \tau \gg \tau'  \\
+\end{array}
+\begin{array}{lllr}
+
+X^{es}_{l.op} & ::= &[~] & \mathit{evaluation~context~for~op}\\
+  & |  &  X^{es}_{l.op}.m(e)\\
+  & | &  v.m(X^{es}_{l.op})\\
+    & |  &  X^{es}_{l.op}.op(e)\\
+  & | &  v.op(X^{es}_{l.op})\\
+  & | & handle\{h\} (X^{es}_{l.op}) &\mathit{if~l.op \rightarrow e \not\in h}\\
+   & | & \keyw{wrap}_{l'.E}(X^{es}_{l.op})  &\mathit{if~l.op \not\in l'.E}\\
+  & | & \keyw{wrap}_{l'.E}(X^{es}_{l.op})   &\mathit{if~l'.E \in es}  \\
+
+  & | & \keyw{unwrap}_{l'.E}(X^{l'.E::es}_{l.op}) \\
+   & | & X^{es}_{l.op} : \tau \gg \tau' 
+
+\
+\end{array}
+\end{array}
+\]
+
+
+\caption{Evaluation Contexts}
+
+$\fbox{$\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(E-Congruence)}]
+  {\langle E[e]~|~\mu \rangle \longrightarrow \langle E[e']~|~\mu' \rangle}
+  {\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle} \\[3ex]
+~~~~~
+\infer[\textsc{(E-New)}]
+  {\langle \keywadj{new} (x \Rightarrow \overline{d})~|~\mu \rangle \longrightarrow \langle l~|~\mu, l \mapsto \{ x \Rightarrow \overline{d} \} \rangle}
+  {l \not\in dom(\mu)}\\[3ex]
+
+
+%~~~~~~~~~~
+%\infer[\textsc{(E-Field)}]
+%  {\langle l.f~|~\mu \rangle \longrightarrow \langle l_1~|~\mu \rangle}
+ % {l \mapsto \{ x \Rightarrow \overline{d} \} \in \mu & \keyw{var} f:\tau = l_1 \in \overline{d}}\quad 
+
+\infer[\textsc{(E-Return)}]
+  {\langle handle\{h\} (v) \mid \mu \rangle \longrightarrow \langle [v/x]e \mid \mu \rangle}
+  {return\ x \rightarrow e \in h}\\[3ex]
+  
+  \infer[\textsc{(E-Handle)}]
+  {\langle handle\{h\} (X^{es}_{l.op}[v.op(v')]) \mid \mu \rangle \longrightarrow \langle [v'/y][new(\_ \Rightarrow \keyw{def} m(x: Unit) : \{\} Unit = handle\{h\}(X_{l.op}^{es}[x]))/resume]e \mid \mu \rangle}
+  {loc(v)=l & l.op(y) \rightarrow e \in h }\\[3ex]
+  
+  \infer[\textsc{(E-Method)}]
+  { \langle l_1.m(v_2)~|~\mu \rangle \longrightarrow \langle [v_2/y][l_1/x]e~|~\mu \rangle}
+  {   l_1 \mapsto \{ x \Rightarrow \overline{d} \} \in \mu & \keyw{def} m(y : \tau_1) : \{ \varepsilon \}~\tau_2 = e \in \overline{d}}\quad  \\[3ex]
+  
+  
+\infer[\textsc{(E-Method-Wrap)}]
+  {\langle (v_1 : \tau \gg \tau').m(v_2) \mid \mu \rangle \longrightarrow \langle \keyw{wrap}_{l_1.E}(v_1.m(\keyw{unwrap}_{l_1.E}(v_2))) \mid \mu \rangle }
+  { loc(v_1) = l_1 & l_1 \mapsto \{ x \Rightarrow \overline{d} \} \in \mu & \keyw{def} m(y : \tau_1) : \{ l_1.E \}~\tau_2  \in \tau' & \keyw{effect} E = \{\varepsilon\} \in \tau &  \keyw{effect} E \in \tau'} \\[3ex]
+  
+  
+\infer[\textsc{(E-Method-Unwrap)}]
+  {\langle \keyw{unwrap}_{l.E}(v_1).m(v_2) \mid \mu \rangle \longrightarrow  \langle \keyw{unwrap}_{l.E}(v_1.m(v_2)) \mid \mu \rangle }
+  {} \\[3ex]
+  
+  
+%\infer[\textsc{(E-Method-Remove)}]
+%  {\langle v_1.m(\keyw{unwrap}_{l.E}(v_2)) \mid \mu \rangle \longrightarrow  \langle v_1.m(v_2)) \mid \mu \rangle }
+%  {} \\[3ex]
+  
+  
+\infer[\textsc{(E-wrap)}]
+  {\langle \keyw{wrap}_{l'.E}(v) \mid \mu \rangle \longrightarrow \langle v \mid \mu \rangle}
+  {} \\[3ex]
+\end{array}
+\]
+
+
+\noindent$\fbox{$loc(v) = l$}$
+\[
+\begin{array}{cc}
+loc(l) &= l\\
+loc(v:\tau \gg\ \tau) &= loc(v)\\
+loc(\keyw{unwrap}(v)) &= loc(v)
+\end{array} 
+\]
+}
+\caption{Wyvern dynamic semantics.}
+\label{f-effects-dynamic-semantics}
+\end{figure}
+
+We use two evaluation contexts: $E$, and $X^{es}_{l.op}$. $E$ is a standard evaluation context. $X^{es}_{l.op}$ is the evaluation context for an operation $l.op$, where $l.op$ is not handled or hidden inside an abstraction. Therefore, in rule E-Handle, we ensure that the current handler is the inner-most handler that handles the operation $v.op$. And more importantly, the operation is not hidden inside abstraction, so it is safe to handle it.
+
+Rules E-Congruence, E-New, E-Return, and E-Method are standard object-oriented dynamic semantics. E-Method-Wrap introduces $\keyw{wrap}$ and $\keyw{unwrap}$  when there is an effect abstraction in type coercion. E-Method-Unwrap transfers $\keyw{unwrap}$ from an object to its member.  E-Wrap eliminates $\keyw{wrap}$.
+
+
+\subsection{ Translation from surface language}
+\label{sec-translation}
+\begin{figure}[H]
+\footnotesize{
+
+\[
+\begin{array}{cc}
+
+
+ \left[  \infer[\textsc{(T-Var)}]
+  {\Gamma \vdash x : \{ \}~\tau}
+  {x : \tau \in \Gamma}  \right] = x
+  \quad \quad \\[3ex]
+~~~~~~~
+\left[ \infer[\textsc{(T-New)}]
+	{\Gamma \vdash \keywadj{new} (x \Rightarrow \overline{d}) : \{ \}~\{ x \Rightarrow \overline{\sigma} \}}
+	{\forall i,~d_i \in \overline{d},~\sigma_i \in \overline{\sigma},~ D_i::\Gamma,x : \{ x \Rightarrow \overline{\sigma} \} \vdash d_i : \sigma_i} \right] = \keyw{new}(x\Rightarrow \overline{[D]})
+	\\[3ex]
+%~~~~~~~~~~
+\left[ \infer[\textsc{(T-Method)}]
+  {\Gamma \vdash e_1.m(e_2) : \{ \varepsilon \}~[e_1/x][e_2/y]\tau_1}
+  {\begin{gathered} E_1::\Gamma \vdash e_1 : \{ \varepsilon_1 \} \{ x \Rightarrow \overline{\sigma} \}\quad \keyw{def} m(y : \tau_2) : \{ \varepsilon_3 \}~\tau_1 \in \overline{\sigma}\\
+  \Gamma \vdash [e_1/x][e_2/y]\varepsilon_3~\mathit{wf}\quad E_2::\Gamma \vdash e_2 : \{ \varepsilon_2 \}~[e_1/x]\tau_2 \quad \varepsilon = \varepsilon_1 \cup \varepsilon_2 \cup [e_1/x][e_2/y]\varepsilon_3 \end{gathered}} \right]  = [E_1].m([E_2]) \\[3ex]
+%~~~~~~~~~~
+
+%\left[ \infer[\textsc{(T-Field)}]
+%	{\Gamma \vdash e.f : \{ \varepsilon \}~[e/x]\tau}
+%	{E::\Gamma \vdash e : \{ \varepsilon \}~\{ x \Rightarrow \overline{\sigma} \} & \keyw{var}~ f : \tau \in \overline{\sigma}}\right] = [E].f \quad \\[3ex]
+%~~~~~~~~~~
+\left[ \infer[\textsc{(T-Sub)}]
+  {\Gamma \vdash e : \{ \varepsilon_2 \}~\tau_2}
+  {E::\Gamma \vdash e : \{ \varepsilon_1 \}~\tau_1 & S::\Gamma \vdash \tau_1 <: \tau_2 & \Gamma \vdash \varepsilon_1 <: \varepsilon_2} \right] =  [E] : \tau_1 \gg\ \tau_2 \\[3ex]
+%~~~~~~~~~~
+
+\left[ \infer[\textsc{(T-op)}]
+  {\Gamma \vdash e_1.op(e_2): \{e_1.E, \varepsilon\} \tau _2}
+  {E_1::\Gamma \vdash e_1: \{\varepsilon\} \{x \Rightarrow \overline{\sigma}\} \quad
+   \keyw{effect} E = \overline{o} \in \overline{\sigma} \quad 
+   \keyw{def} op(x: \tau_1): \tau_2 \in \overline{o} \quad 
+   E_2::\Gamma \vdash e_2: \{\varepsilon \} \tau_1
+  }
+  \right] = [E_1].op[E_2]
+  \\[3ex]
+  
+\left[  \infer[\textsc{(T-handle)}]
+  {\Gamma \vdash \keyw{handle} \{x_i.op_i(y_i)\rightarrow e_i, ...., x_n.op_n(y_n)\rightarrow e_n, return\ y\rightarrow e_r\} e: \{\varepsilon\}\ \tau_r }
+  {E::\Gamma \vdash e: \{x.E, \varepsilon\}\ \tau \quad 
+  \Gamma \vdash findop(x.E) = \{ x_1.op_1(y_1), \dots, x_n.op_n(y_n)\} \quad
+   \Gamma \vdash x_i.op_i : \tau_i \rightarrow \tau_i'\\  
+   \Gamma, resume: \{\_ \Rightarrow \keyw{def} m(z: \tau_i') : \{\varepsilon\}\ \tau_r\} , y_i:\tau_i \vdash e_i: \{\varepsilon\}\ \tau_r \quad \Gamma, y:\tau \vdash e_r: \{\varepsilon\}\ \tau_r
+  }\right] \\= \keyw{handle}\{...\}[E]\\[3ex]
+\end{array}
+\]
+}
+
+
+\caption{Translation of terms}
+\label{f-declarative}
+\end{figure}
+
+\begin{figure}[H]
+\flushleft
+\footnotesize{
+\[
+  \begin{array}{cc}
+  
+ \left[
+\infer[\textsc{(DT-Def)}]
+  {\Gamma \vdash \keyw{def} m(x : \tau_1) : \{ \varepsilon \}~\tau_2 = e~:~\keyw{def} m(x : \tau_1) : \{ \varepsilon \}~\tau_2}
+  {\begin{gathered} E :: \Gamma,~x : \tau_1 \vdash e : \{ \varepsilon \}~\tau_2\quad\Gamma,~x : \tau_1 \vdash \varepsilon~\mathit{wf} \end{gathered}} 
+  \right] = \keyw{def} m(x : \tau_1) : \{ \varepsilon_\}~\tau_2 = [E]
+  \\[3ex]
+
+
+\left[
+\infer[\textsc{(DT-Effect-1)}]
+  {\Gamma \vdash \keyw{effect} g = \overline{o} ~:~\keyw{effect} g = \overline{o}}
+  {}
+  
+  \right] = \keyw{effect} g = \overline{o}
+\\[3ex]
+
+
+\left[
+\infer[\textsc{(DT-Effect-2)}]
+  {\Gamma \vdash \keyw{effect} g = \{ \varepsilon \}~:~\keyw{effect} g }
+  {\Gamma \vdash \varepsilon~\mathit{wf}}
+  
+  \right] = \keyw{effect} g = \{ \varepsilon \}
+\\[3ex]
+\end{array}
+\]
+
+
+
+}
+\caption{Translation of declarations}
+\label{f-effects-subtyping-rules}
+\end{figure}
+
+
+\subsection{Soundness}
+\begin{theorem} (Progress) If $\emptyset \mid \Sigma \vdash e : \{\varepsilon\}\ \tau$ (i.e., e is a closed, well-typed expression), then either 
+\begin{enumerate}
+\item $e$ is a value
+\item For all $ \mu$ such that $\mu : \Sigma$, there exists $e', \mu'$ such that $\langle e \mid \mu \rangle \longrightarrow \langle e' \mid \mu' \rangle $
+\item $e = X_{l.op}[v.op(v')]$, where $loc(v) = l$
+\end{enumerate}
+\end{theorem}
+
+\begin{theorem} (Preservation) If $\Gamma \mid \Sigma \vdash e : \{\varepsilon\}\ \tau$, $\mu : \Sigma$, and ${ \langle e \mid \mu \rangle \longrightarrow \langle e' \mid \mu' \rangle }$, then there exists $\Sigma'$ such that $\Sigma \subseteq \Sigma'$, $\mu' : \Sigma'$, and $\Gamma \mid \Sigma' \vdash e' : \{\varepsilon\}\ \tau$
+\end{theorem}
+
+\pagebreak
+\section{Language with Explicit Typing}
+\subsection{syntax}
+\begin{figure}[H]
+\small{
+\[
+\begin{array}{lll}
+\begin{array}{lllr}
+e & ::= & x  & \mathit{expressions}\\
+& | & l \\
+& | & \keywadj{new}(x \Rightarrow \overline{d})  \\
+& | & e.m(e)  \\
+& | & x.op(e)  \\
+& | & handle \{ h \} e   \\
+& | & e \gg \{\varepsilon\}\ \tau\\
+d & ::= & \keyw{def} m(x : \tau) :  \{\varepsilon\} ~\tau = e &
+\mathit{declarations}\\
+& |   & \keyw{effect} E = \overline{\keyw{o}} \\
+& |   & \keyw{effect} E = \varepsilon \\
+
+
+
+\end{array}
+\begin{array}{lllr}
+
+
+\varepsilon & ::= & \overline{x.E} & \mathit{effects}\\
+\tau & ::= & \{ x \Rightarrow \overline{\sigma} \} & \mathit{type}\\
+\sigma & ::= & \keyw{def} m(x : \tau) : \{\varepsilon\} ~\tau & \mathit{decl.~types}\\
+       & |   & \keyw{effect} E = \overline{\keyw{o}}\\
+       & |   & \keyw{effect} E = \varepsilon\\
+       & |   & \keyw{effect} E \\
+     %  & |   & \keyw{effect} g = \{\varepsilon\} \leqslant \varepsilon' \\
+\keyw{o} & ::= & \keyw{def} op(x:\tau):  \tau & \mathit{operation}\\
+\keyw{h} & ::= & return\ x \rightarrow e & \mathit{handler}\\
+& | & x.op(x) \rightarrow e; h \\
+\Gamma & ::= & \emptyset \mid \Gamma, x:\tau & \mathit{typing\ context}\\
+\mu & ::= & \emptyset \mid \mu, l \mapsto \{x \rightarrow \overline{d}\} & \mathit{store}\\
+\Sigma & ::= & \emptyset \mid \Sigma, l : \tau & \mathit{store\ context}\\
+\
+\end{array}
+\end{array}
+\]
+}
+\caption{Language with explicit types}
+\end{figure}
+
+\subsection{Dynamic Semantics}
+\label{sec-dynamic}
+\begin{figure}[H]
+\flushleft
+
+
+
+\footnotesize{
+
+\[
+\begin{array}{lll}
+\begin{array}{lllr}
+C & ::= & [~] & \mathit{evaluation~context}\\
+  & |   & C.m(e)\\
+	  & |   & l.m(C)\\
+	  & |   & C.op(e)\\
+	  & |   &  l.op(C)\\
+  & |   & handle\{C\}e \\
+
+  & |   & handle\{h\}C \\
+  & |   & C \gg \{\varepsilon\}\ \tau  \\
+
+  & |   & l \gg \{C\}\ \tau  \\
+  & |   & l \gg \{\varepsilon\}\ C  \\
+  
+
+\end{array}
+\begin{array}{lllr}
+
+X_{l.op} & ::= &[~] & \mathit{evaluation~context~for~op}\\
+  & |  &  X_{l.op}.m(e)\\
+  & | &  l.m(X_{l.op})\\
+    & |  &  X_{l.op}.op(e)\\
+  & | &  l'.op(X_{l.op})\\
+  & | & Y_{l.op} \gg \{ \varepsilon \}\ \tau & \mathit{l.op \in \varepsilon}\\
+  & | & handle\{h\} (X_{l.op}) &\mathit{if~l.op \rightarrow e \not\in h}\\
+Y_{l.op} & ::= &[~] & \mathit{evaluation~context~for~op}\\
+  & |  &  Y_{l.op}.m(e)\\
+  & | &  l.m(Y_{l.op})\\
+    & |  &  Y_{l.op}.op(e)\\
+  & | &  l'.op(Y_{l.op})\\
+  & | & Y_{l.op} \gg \{ \varepsilon \}\ \tau\\
+  & | & handle\{h\} (Y_{l.op}) &\mathit{if~l.op \rightarrow e \not\in h}\\
+
+\
+\end{array}
+\end{array}
+\]
+
+
+\caption{Evaluation Contexts}
+
+$\fbox{$\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(E-Congruence)}]
+  {\langle C[e]~|~\mu \rangle \longrightarrow \langle C[e']~|~\mu' \rangle}
+  {\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle} \\[3ex]
+~~~~~
+\infer[\textsc{(E-New)}]
+  {\langle \keywadj{new} (x \Rightarrow \overline{d})  ~|~\mu \rangle \longrightarrow \langle l ~|~\mu, l \mapsto \{ x \Rightarrow \overline{d} \}  \rangle}
+  {l \not\in dom(\mu)}\\[3ex]
+
+
+%~~~~~~~~~~
+%\infer[\textsc{(E-Field)}]
+%  {\langle l.f~|~\mu \rangle \longrightarrow \langle l_1~|~\mu \rangle}
+ % {l \mapsto \{ x \Rightarrow \overline{d} \} \in \mu & \keyw{var} f:\tau = l_1 \in \overline{d}}\quad 
+
+\infer[\textsc{(E-Return)}]
+  {\langle handle\{h\} (l) \mid \mu \rangle \longrightarrow \langle [l/x]e \mid \mu \rangle}
+  {return\ x \rightarrow e \in h}\\[3ex]
+  
+  \infer[\textsc{(E-Handle)}]
+  { \begin{gathered} 
+  \langle handle\{h\} (X_{l_1.op}[v_1.op(v_2)])  \mid \mu \rangle \longrightarrow \\
+  \langle [v_2/y][new(\_ \Rightarrow  \keyw{def} m(x: \tau) : \{\varepsilon' \}\ \tau' = handle\{h\}(X_{l_1.op}[x]))/resume]e :\{\varepsilon'\}\ \tau' \mid \mu \rangle
+  \end {gathered} }
+  { l_1.op(y) \rightarrow e \in h }\\[3ex]
+  
+  \infer[\textsc{(E-Method)}]
+  { \langle (l_1 \gg \tau_1).m(v_2)~|~\mu \rangle \longrightarrow \langle [l_1 /x][(v_2 \gg [l_1/x]\tau)/y]e \gg \{[(l_1 \gg \tau_1)/x][v_2/y]\varepsilon\}\ [(l_1 \gg \tau_1)/x][v_2/y]\tau'~|~\mu \rangle}
+  {   l_1 \mapsto \{ x \Rightarrow \overline{d} \}\in \mu & \keyw{def} m(y : \_) : \{ \_ \}~\_ = e \in \overline{d}  & \keyw{def} m(y: \tau) : \{\varepsilon\}\ \tau'  \in \tau_1} \\[3ex]
+  
+  \infer[\textsc{(E-Coercion)}]
+  {(l \gg \tau_1) \gg \tau_2 \longrightarrow l \gg \tau_2}
+  {}
+
+\end{array}
+\]
+}
+\caption{Wyvern dynamic semantics.}
+\label{f-effects-dynamic-semantics}
+\end{figure}
+
+\begin{verbatim}
+
+\end{verbatim}
+
+\newpage
+\section{Multi-agent calculus}
+\subsection{syntax}
+\begin{align*}
+&(agents) &i, j &::= \{1 \dots n\}\\
+&(lists) & l &::= i \mid il\\
+&(types) &\tau &::= \tau \rightarrow \{\varepsilon\}\ \tau \mid unit\\
+&(effects) &\varepsilon &::= f \mid op \mid \overline{\varepsilon}\\ 
+&(i-terms)  &e_i &::= x_i \mid \lambda x_i :\tau.\ e_i \mid e_i\ e_i'\mid op(e_i) \mid \texttt{handle}\ e_i\ \texttt{with}\ h_i \mid [e_j]^{\tau \mid \varepsilon}_l\\
+&(i-primval) &\hat{v_i} &::= () \mid \lambda x_i :\tau.\ e_i  \mid X^{op}[op(v_i)]\\
+&(i-value) &v_i &::= \hat{v_i} \mid [\hat{v_i}]^{\tau \mid \varepsilon}_l \quad\quad (\tau \mid \varepsilon) \not\in Dom(\delta_i)\\
+&(i-handler) &h_i &::= \texttt{return}\ x \mapsto e_i \mid op(x_i) \mapsto e_i\\
+\end{align*}
+
+\subsection{Typing Rules}
+$$\infer{\Gamma  \vdash () : unit}{} \quad \infer{\Gamma \vdash x_i : \Gamma (x_i)}{} \quad 
+\infer{\Gamma \vdash e_i\ e_i' : \tau' \mid \varepsilon}{\Gamma \vdash e_i: \tau' \rightarrow \{\varepsilon\}\ \tau \mid \varepsilon & \Gamma \vdash e_i' : \tau' \mid \varepsilon}$$
+$$ \infer{\lambda x_i : \tau'. e_i : \tau' \rightarrow \{\varepsilon'\}\ \tau \mid \varepsilon }{\Gamma, x_i:\tau' \vdash e:\tau  \mid \varepsilon'} $$
+$$\infer{\Gamma \vdash \texttt{handle} \{op_1(x_1) \mapsto e_1; \dots; op_n(x_n)\mapsto (e_n); \texttt{return}\ x \mapsto e_r\}\ (e) : \tau_r \mid \varepsilon'}
+{\begin{gathered} 
+\Gamma \vdash e : \tau \mid \varepsilon  \quad \Delta_i(\varepsilon) = op_1  \dots  op_n, \varepsilon'\\
+\Gamma, x:\tau \vdash e_r : \tau_r \mid \varepsilon' \quad \Gamma \vdash op_i : \tau_i \rightarrow \tau_i' \\
+\Gamma, resume: \tau_i' \rightarrow \{\varepsilon\}\ \tau_r, x_i : \tau_i \vdash e_i : \tau_r \mid \varepsilon'
+\end{gathered}
+} 
+$$
+$$\infer{\Gamma \vdash [e_j]^{\tau \mid \varepsilon}_l: \Delta_i(\tau) \mid \Delta_i(\varepsilon)}{\Gamma \vdash e_j:\tau' \mid \varepsilon' \quad \tau' \leq_l \tau \quad \varepsilon' \leq_l \varepsilon}$$
+\pagebreak
+\subsection{Dynamic Semantics}
+\begin{align*}
+E &::= [] \mid E\ e_i \mid v\ E \mid \texttt{handle}\ \{h\}\ E \mid [E]^{\tau\mid\varepsilon}_l \mid op(E) \\
+X^{op} &::= [] \mid X^{op}\ e \mid v\ X^{op}  \\
+				&\mid \texttt{handle}\ \{h\}\ X^{op}  &  \texttt{if}\ op \not \in h \\
+				&\mid [X^{op}]^{\tau \mid \varepsilon}_l  & \texttt{if}\ op\in\varepsilon \\
+\end{align*}
+\begin{align*}
+(\lambda x.\tau.\ e_i)\ v_i &\mapsto [v_i/x]e_i  \\
+\texttt{handle}\ \{h_i\}(v_i) &\mapsto [v_i/x]e_i  \quad \texttt{where}\ \texttt{return}\ x \mapsto e_i \in h_i\\
+\texttt{handle}\ \{h_i\}(X^{op}[op(v)]) &\mapsto [v/x_i][\lambda y.\ \texttt{handle}\ \{h_i\}(X^{op}[y])/resume]e_i \quad \texttt{where}\ op(x_i) \mapsto e_i \in h_i\\
+[\hat{v_j}]^{\tau \mid \varepsilon}_l &\mapsto [\hat{v_j}]^{\Delta_i(\tau \mid \varepsilon)}_l\\
+[[\hat{v_j}]^{u}_l]^v_{kl'} &\mapsto[\hat{v_j}]^{v}_{lkl'} \\
+[\lambda x_j: \tau. e_j]^{\tau' \rightarrow \{\varepsilon\}\ \tau'' \mid \varepsilon'}_{jl} &\mapsto \lambda x_i : \tau'. [[[x_i]^\tau_{irev(l)}/x_j]e_j]^{\tau'' \mid \varepsilon \cup \varepsilon'}_{jl}\\
+\end{align*}
+
+\begin{theorem}
+
+
+
+\newpage
+\section{Fine-grain call-by-value multi-agent calculus}
+\subsection{syntax}
+\begin{align*}
+&(agents) &i, j &::= \{1 \dots n\}\\
+&(lists) & l &::= i \mid il\\
+&(value\ types) &\tau &::= unit \mid \tau \rightarrow \sigma\\
+&(computation\ types) &\sigma &::= \{\varepsilon\}\tau\\
+&(effect\ types) &\varepsilon &::= \cdot \mid f, \varepsilon \mid op, \varepsilon\\
+&(i\  values) &{v_i} &::= ()_i \mid \lambda x_i:\tau.\ c_i\\
+&(i\ expression) &e_i &::= x_i \mid v_i \mid [e_j]^\tau_l \\
+&(i\ computation) &c_i &::= \texttt{return}\ e_i \mid op(e_i, y.c_i) \mid \texttt{do}\ x \leftarrow c_i\ \texttt{in}\ c_i' \mid e_i\ e_i' \mid \texttt{with}\ h_i\ \texttt{handle}\ c_i\\
+ &\ &\mid\ &[c_j]^\sigma_l \mid [op]^\varepsilon_l (e_i, y_i.c_i)\\
+&(i\ handler) &h_i &::= \texttt{handler}\ \{\texttt{return}\ x_i \mapsto c^r_i, op^1(x_i^1, k^1) \mapsto c_i^1 \dots  op^n(x_i^n, k^n) \mapsto c_i^n\}  
+\end{align*}
+
+\subsection{Operational Semantics}
+\begin{figure}[H]
+\footnotesize{
+
+
+$\fbox{$e \longrightarrow e'$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(E-Congruence)}]
+  {[e_j]^\tau_l \longrightarrow [e_j']^\tau_l}
+  {e_j \mapsto e_j'} \quad 
+
+\infer[\textsc{(E-Unit)}]
+  {[()_j]^{unit}_l \longrightarrow ()_i}
+  {} \\[3ex]
+  
+\infer[\textsc{(E-Lambda)}]
+  {[\lambda x_j : \tau'.\ c_j]^{\tau \rightarrow \sigma}_{jl} \longrightarrow \lambda x_i : \tau.\ [\{[x_i]^{\tau'}_{irev(l)}/x_j\}c_j]^\sigma_{jl}}
+  {} \\[3ex]
+\end{array}
+\]
+
+$\fbox{$c \longrightarrow c'$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(E-Ret)}]
+  {\texttt{return}\ e_i \longrightarrow \texttt{return}\ e_i'}
+  {e_i \mapsto e_i'} \quad
+  
+\infer[\textsc{(E-Op)}]
+  {op(e_i,y_i.c_i) \longrightarrow op(e_i', y_i, c_i)}
+  {e_i \mapsto e_i'} \\[3ex]
+ 
+ 
+\infer[\textsc{(E-EmbedOp1)}]
+{[op]^\varepsilon_l(e_i; y_i.c_i) \longrightarrow [op]^{\varepsilon}_l(e_i'; y_i.c_i) }
+{e_i \longrightarrow e_i'} \quad
+ 
+\infer[\textsc{(E-EmbedOp2)}]
+{[op]^\varepsilon_l(v_i; y_i.c_i) \longrightarrow [op]^{\varepsilon'}_l(v_i; y_i.c_i) }
+{\overline{\Delta_i}(\varepsilon) = \varepsilon'} \\[3ex]
+
+\infer[\textsc{(E-EmbedOp3)}]
+{[op]^\varepsilon_l(v_i; y_i.c_i) \longrightarrow op(v_i; y_i.c_i) }
+{\Delta_i(\varepsilon) = \varepsilon & op \in \varepsilon} \quad
+
+\infer[\textsc{(E-EmbedOp4)}]
+{[op]^\varepsilon_l(v_i; y_i.c_i) \longrightarrow [op]^{\varepsilon \setminus op'}(v_i; y_i.c_i) }
+{\Delta_i(\varepsilon) = \varepsilon & op \not\in \varepsilon & op' \in \varepsilon} \\[3ex]
+
+
+\infer[\textsc{(E-App1)}]
+  {e_i\ e_i' \longrightarrow e_i''\ e_i'}
+  {e_i \longrightarrow e_i''}  \quad
+  
+\infer[\textsc{(E-App2)}]
+  {v_i \ e_i' \longrightarrow v_i\ e_i'}
+  {e_i\longrightarrow e_i'}  \quad
+  
+\infer[\textsc{(E-App3)}]
+  {(\lambda x_i:\tau.\ c_i) \ v_i \longrightarrow \{v_i/x_i\}c_i}
+  {} \\[3ex]
+  
+  
+\infer[\textsc{(E-Seq1)}]
+  {\texttt{do}\ x \leftarrow c_i\ \texttt{in}\ c_i' \longrightarrow \texttt{do}\ x \leftarrow c_i''\ \texttt{in} c_i'}
+  {c_i \longrightarrow c_i''}  \quad
+  
+\infer[\textsc{(E-Seq2)}]
+  {\texttt{do}\ x \leftarrow \texttt{return}\ v_i \ \texttt{in}\ c_i' \longrightarrow \{v_i/x\} c_i'}
+  {} \\[3ex]
+  
+\infer[\textsc{(E-Seq3)}]
+  {\texttt{do}\ x \leftarrow op_i(v_i; y_i.c_i) \texttt{in}\ c_i' \longrightarrow op_i(v_i; y_i. \m{do} x \leftarrow c_i \m{in} c_i')}
+  {} \\[3ex]
+  
+\infer[\textsc{(E-Seq4)}]
+  {\texttt{do}\ x \leftarrow [op_j]^\varepsilon_l(v_i; y_i.c_i) \texttt{in}\ c_i' \longrightarrow [op_j]^\varepsilon_l(v_i; y_i. \m{do} x \leftarrow c_i \m{in} c_i')}
+  {\Delta_i(\varepsilon) = \varepsilon & op \not \in \varepsilon} \\[3ex]
+  
+
+  
+ \infer[\textsc{(E-Handle1)}]
+  {\m{with} h_i \m{handle} c_i \longrightarrow \m{with} h_i \m{handle} c_i' }
+  {c_i \longrightarrow c_i'} \quad
+  
+\infer[\textsc{(E-Handle2)}]
+  {\m{with} h_i \m{handle} \m{return} v_i \longrightarrow \{v_i/x_i\}c_i' }
+  {\m{return} x_i \mapsto	c_i' \in h_i} \\[3ex]
+  
+\infer[\textsc{(E-Handle3)}]
+  {\m{with} h_i \m{handle} op(v_; y_i.c_i) \longrightarrow \{v_i/x_i\} \{(\lambda y: \tau_B.
+   \m{with} h_i\m{handle} c_i) / k\}c_i' }
+  {op(x_i; k) \mapsto c_i' \in h_i & \Sigma(op) = \tau_A \rightarrow \tau_B} \\[3ex]
+  
+\infer[\textsc{(E-Handle4)}]
+  {\m{with} h_i \m{handle} [op]^\varepsilon_l(v_i, y_i.c_i) \longrightarrow [op]^\varepsilon_l(v_i; y_i. \m{with} h_i \m{handle} c_i))}
+  {\Delta_i(\varepsilon) = \varepsilon & op \not \in \varepsilon} \\[3ex]
+  
+\infer[\textsc{(E-Embed1)}]
+{[c_j]^\sigma_l \longrightarrow [c_j']^\sigma_l}
+{c_j \longrightarrow c_j'} \quad 
+
+
+
+\infer[\textsc{(E-Embed2)}]
+{[\m{return} v_j]^{\{\varepsilon\}\tau}_l \longrightarrow \m{return} [v_j]^\tau_l}
+{} \\[3ex]
+
+\infer[\textsc{(E-Embed3)}]
+{[op_j(v_j; y_j.c_j)]^{\{\varepsilon\}\tau}_l \longrightarrow [op_j]^\varepsilon_l([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_l)}
+{ \Sigma(op) = \tau_A \rightarrow \tau_B} \\[3ex]
+
+\infer[\textsc{(E-Embed4)}]
+{[[op_k]^{\varepsilon'}_{l'}(v_j; y_j.c_j)]^{\{\varepsilon\}\tau}_l \longrightarrow [op_k]^\varepsilon_{l'l}([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_l)}
+{ \Sigma(op) = \tau_A \rightarrow \tau_B& \Delta_j(\varepsilon') = \varepsilon' & op \not \in \varepsilon'} \\[3ex]
+
+
+
+\end{array}
+\]
+
+}
+\caption{Operational Semantics}
+\end{figure}
+
+\subsection{Static Semantics}
+\begin{figure}[H]
+\footnotesize{
+\noindent$\fbox{$\Gamma \vdash e_i : \tau$}$
+\[
+\begin{array}{c}
+
+\infer[\textsc{(T-unit)}]
+  {\Gamma \vdash ()_i : 1}
+  {} \quad 
+
+\infer[\textsc{(T-var)}]
+  {\Gamma \vdash x_i : \Gamma(x_i)}
+  {} \quad 
+
+\infer[\textsc{(T-lam)}]
+  {\Gamma \vdash (\lambda x_i: \tau.\ c_i) : \tau \rightarrow \sigma}
+  {\Gamma, x_i:\tau \vdash c_i : \sigma} \\[3ex]
+  
+\infer[\textsc{(T-EmbedExp)}]
+  {\Gamma \vdash [e_j]^\tau_l : \tau}
+  {\Gamma \vdash e_j : \tau' & \Gamma \vdash \tau' \leq_{li} \tau} \quad  
+\end{array} \\[3ex]
+\]
+
+
+\noindent$\fbox{$\Gamma \vdash c_i : \sigma$}$
+\[
+\begin{array}{c}
+
+\infer[\textsc{(T-ret)}]
+  {\Gamma\vdash \m{return} e_i : \{\varepsilon\}\tau }
+  {\Gamma\vdash e_i : \tau} \quad 
+  
+\infer[\textsc{(T-op)}]
+  {\Gamma\vdash op(e_i; y_i.c_i) : \{\varepsilon\}\tau }
+  {\Sigma(op) = \tau_A \rightarrow \tau_B & \Gamma \vdash e_i : \tau_A & \Gamma. y_i:\tau_B\vdash c_i: \{\varepsilon\}\tau & op \in \Delta_i(\varepsilon)} \\[3ex]
+
+
+\infer[\textsc{(T-seq)}]
+  {\Gamma\vdash \m{do} x_i \leftarrow c_i \m{in} c_i' : \{\varepsilon\}\tau' }
+  {\Gamma \vdash c_i : \{\varepsilon\}\tau & \Gamma, x_i:\tau \vdash c_i': \{\varepsilon\}\tau'} \quad 
+  
+  
+\infer[\textsc{(T-app)}]
+  {\Gamma\vdash e_1\ e_2\ : \sigma }
+  {\Gamma \vdash e_1 : \tau \rightarrow \sigma & \Gamma \vdash e_2 : \tau} \\[3ex]
+  
+\infer[\textsc{(T-handle)}]
+  {\Gamma\vdash \m{with} h_i \m{handle} c_i: \{\varepsilon'\} \tau_B}
+  {\begin{gathered}
+  h_i = \{\m{return} x \mapsto c^r, op^1(x;k) \mapsto c^1, \dots, op^n(x;k) \mapsto c^n \}\\
+  \Gamma, x: \tau_A \vdash c^r : \{\varepsilon'\}\tau_B \quad
+  \left\{ \Sigma(op^i) = \tau_i \rightarrow \tau_i'  \quad \Gamma, x:\tau_i, k:\tau_i' \rightarrow \{\varepsilon'\}\tau_B \vdash c^i: \{\varepsilon'\}\tau_B    \right\}_{1 \leq i \leq n} \\
+  \Gamma \vdash c_i : \{\varepsilon\}\tau_A \quad \varepsilon \setminus \{op^i\}_{1 \leq i \leq n} \subseteq \varepsilon'
+  \end{gathered}} \\[3ex]
+  
+\infer[\textsc{(T-Embed)}]
+  {\Gamma\vdash [c_j]^\sigma_l : \sigma }
+  {\Gamma \vdash c_j : \sigma' & \Gamma \vdash \sigma' \leq_{li} \sigma  } \\[3ex]
+  
+\infer[\textsc{(T-EmbedOp)}]
+  {\Gamma\vdash [op]^\varepsilon_l(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau }
+  {\Sigma(op) = \tau_A \rightarrow \tau_B & \Gamma \vdash e_i : \tau_A & \Gamma. y_i:\tau_B\vdash c_i: \{\varepsilon'\}\tau & \overline{\Delta_i}(\varepsilon) \subseteq \overline{\Delta_i}(\varepsilon') & \Gamma \vdash op \leq_{li} \varepsilon} \\[3ex]
+  
+\end{array} \\[3ex]
+\]
+}
+
+
+\caption{Static Semantics}
+\label{wrap-static}
+\end{figure}
+
+
+\begin{figure}[H]
+\footnotesize{
+\noindent$\fbox{$\tau \leq_l \tau'$}$
+\[
+\begin{array}{c}
+
+\infer[\textsc{(R-unit)}]
+	{unit \leq_l unit}
+	{} \quad
+
+\infer[\textsc{(R-arrow)}]
+	{\tau \rightarrow \sigma \leq_l \tau' \rightarrow \sigma'}
+	{\tau \leq_l \tau' & \sigma \leq_l \sigma'}
+  
+\end{array} \\[3ex]
+\]
+
+\noindent$\fbox{$\sigma \leq_l \sigma$}$
+\[
+\begin{array}{c}
+
+\infer[\textsc{(R-sigma)}]
+	{\{\varepsilon\}\tau \leq_l \{\varepsilon'\}\tau'}
+	{ \varepsilon \leq_l \varepsilon' & \tau \leq_l \tau' } \quad
+  
+\end{array} \\[3ex]
+\]
+
+\noindent$\fbox{$\varepsilon \leq_l \varepsilon$}$
+\[
+\begin{array}{c}
+
+\infer[\textsc{(R-eff1)}]
+	{\varepsilon \leq_i \varepsilon'}
+	{ \overline{\Delta_i}(\varepsilon) \subseteq \overline{\Delta_i}(\varepsilon')  } \quad
+
+\infer[\textsc{(R-eff2)}]
+	{\varepsilon \leq_{ll'} \varepsilon'}
+	{  \varepsilon \leq_l \varepsilon'' &   \varepsilon'' \leq_{l'} \varepsilon' } \quad
+\end{array} \\[3ex]
+\]
+}
+
+
+\caption{Type Relations}
+\label{wrap-static}
+\end{figure}
+
+\subsection{Safety}
+
+\begin{lemma} (Substitution) \\
+If $\Gamma, x_j : \tau' \vdash c_i : \sigma$ and $\Gamma \vdash e_j : \tau'$, then $\Gamma \vdash \{e_j/x_j\}c_i : \sigma$
+\end{lemma}
+
+\begin{lemma} 
+\label{lemma-exact}
+If $\Gamma \vdash c_i : \{\varepsilon\}\tau$ then $\overline{\Delta_i}(\varepsilon) = \varepsilon$
+\end{lemma}
+
+\begin{lemma}
+\label{lemma-relation}
+If $op \leq_{l} \varepsilon$, then $op \leq_{l} \varepsilon \setminus op'$
+\end{lemma}
+
+\begin{lemma} (Preservation) \\
+If $\Gamma \vdash c_i : \{\varepsilon\} \tau$ and $c_i \longrightarrow c_i'$, then $\Gamma \vdash c_i' : \{\varepsilon\}\tau$
+
+\begin{proof} (Sketch)
+By induction on the derivation that $c_i \longrightarrow c_i'$. We proceed by the cases on the last step of the derivation.
+
+\begin{enumerate}
+\item E-Ret: By inversion, $\Gamma \vdash e_i: \tau$. By preservation of expressions and IH, we have  $\Gamma \vdash e_i': \tau$. Then we can use E-Ret to derive $\Gamma  \vdash c_i' : \{\varepsilon\} \tau$
+\item E-Op: Follow immediately from inversion and IH
+\item E-EmbedOp1: Follow immediately from inversion and IH
+\item E-EmbedOp2:  
+$$\infer[\textsc{(E-EmbedOp2)}]
+{[op_j]^\varepsilon_l(v_i; y_i.c_i) \longrightarrow [op_j]^{\varepsilon''}_l(v_i; y_i.c_i) }
+{\overline{\Delta_i}(\varepsilon) = \varepsilon''} \quad $$
+We have the typing rule as follows:
+$$\infer[\textsc{(T-EmbedOp)}]
+  {\Gamma\vdash [op]^\varepsilon_l(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau }
+  {\Sigma(op) = \tau_A \rightarrow \tau_B & \Gamma \vdash e_i : \tau_A & \Gamma. y_i:\tau_B\vdash c_i: \{\varepsilon'\}\tau & \overline{\Delta_i}(\varepsilon) \subseteq \overline{\Delta_i}(\varepsilon') & \Gamma \vdash op \leq_{li} \varepsilon}  $$
+  Since $\overline{\Delta_i}(\varepsilon'') = \varepsilon''$ and $\varepsilon'' = \overline{\Delta_i}(\varepsilon)$, we have $\overline{\Delta_i}(\varepsilon'')  \subseteq \overline{\Delta_i}(\varepsilon')$. Then we can use T-EmbedOp to derive $\Gamma\vdash [op]^{\varepsilon''}_l(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau $
+\item E-EmbedOp3:
+  We have the typing rule as follows:
+$$\infer[\textsc{(T-EmbedOp)}]
+  {\Gamma\vdash [op]^\varepsilon_l(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau }
+  {\Sigma(op) = \tau_A \rightarrow \tau_B & \Gamma \vdash e_i : \tau_A & \Gamma. y_i:\tau_B\vdash c_i: \{\varepsilon'\}\tau & \overline{\Delta_i}(\varepsilon) \subseteq \overline{\Delta_i}(\varepsilon') & \Gamma \vdash op \leq_{li} \varepsilon}  $$
+  By E-EmbedOp3, $op \in \overline{\Delta_i}(\varepsilon)$. So $op \in \overline{\Delta_i}(\varepsilon')$. 
+By inversion on the typing rule, we have $\Gamma, y_i:\tau_B\vdash c_i: \{\varepsilon'\}\tau$. By lemma \ref{lemma-exact}, we have $\Gamma, y_i:\tau_B\vdash c_i: \{\overline{\Delta_i}(\varepsilon')\}\tau$. Then we can use T-Op to derive the designed result $\Gamma \vdash op(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau $
+
+\item E-EmbedOp4:
+We have the typing rule as follows:
+$$\infer[\textsc{(T-EmbedOp)}]
+  {\Gamma\vdash [op]^\varepsilon_l(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau }
+  {\Sigma(op) = \tau_A \rightarrow \tau_B & \Gamma \vdash e_i : \tau_A & \Gamma. y_i:\tau_B\vdash c_i: \{\varepsilon'\}\tau & \overline{\Delta_i}(\varepsilon) \subseteq \overline{\Delta_i}(\varepsilon') & \Gamma \vdash op \leq_{li} \varepsilon}  $$
+By lemma \ref{lemma-relation}, we have $op \leq_{li} \varepsilon \setminus op'$. By inversion on the typing rule, we have $\Gamma, y_i:\tau_B \vdash c_i:\{\varepsilon'\}\tau$ and $\varepsilon \subseteq \overline{\Delta_i}(\varepsilon')$.  So $\varepsilon \setminus op' \subseteq \overline{\Delta_i}(\varepsilon')$. By lemma \ref{lemma-exact}, we have $\Gamma, y_i:\tau_B \vdash c_i:\{\overline{\Delta_i}(\varepsilon')\}\tau$. Then we can apply T-EmbedOp again to derive $\Gamma\vdash [op]^{\varepsilon \setminus op'}_l(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau $
+  
+\item E-App1: Follows immediately by T-App
+\item E-App2: Follows immediately by T-App
+\item E-App3: By inversion of T-App, we $\Gamma \vdash (\lambda x_i: \tau.\ c_i) : \tau \rightarrow \sigma$, $\Gamma \vdash v_i : \tau$. By inversion of T-Lam, $\Gamma, x_i:\tau \vdash c_i : \sigma$. By substitution lemma, we have $\Gamma \vdash \{v_i/x_i\}c_i : \sigma$.
+
+\item E-Seq1:  Follows immediately by T-Seq and IH.
+\item E-Seq2: By inversion on T-Seq, we have $\Gamma \vdash \m{return} v_i : \{\varepsilon\}\tau$ and $\Gamma, x_i:  \tau \vdash c_i': \{\varepsilon\}\tau'$. By inversion on T-Ret, we have $\Gamma \vdash v_i: \tau$. Then by substitution lemma we have $\Gamma \vdash \{v_i/x\}c_i' : \{\varepsilon\}\tau'$.
+\item E-Seq3: 
+$$
+\infer[\textsc{(E-Seq3)}]
+  {\texttt{do}\ x \leftarrow op_i(v_i; y_i.c_i) \texttt{in}\ c_i' \longrightarrow op_i(v_i; y_i. \m{do} x \leftarrow c_i \m{in} c_i')}
+  {} $$
+  By inversion of T-Seq, we have $\Gamma \vdash op_i(v_i; y_i.c_i) : \{\varepsilon\}\tau$  and $\Gamma , x:\tau \vdash c_i' : \{\varepsilon\}\tau'$. By inversion on T-OP, we have $\Gamma, y_i: \tau_B \vdash c_i: \{\varepsilon\}\tau$ and $op \in \varepsilon$ and $\Gamma \vdash v_i : \tau_A$.  Then by T-Seq, we have $\Gamma, y_i : \tau_B \vdash \m{do} x \leftarrow c_i \m{in} c_i' : \{\varepsilon\}\tau'$. Then we can use T-Op to derive $\Gamma \vdash op_i(v_i; y_i. \m{do} x \leftarrow c_i \m{in} c_i') : \{\varepsilon\}\tau'$.
+
+\item E-Seq4
+$$
+\infer[\textsc{(E-Seq4)}]
+  {\texttt{do}\ x \leftarrow [op_j]^\varepsilon_l(v_i; y_i.c_i) \texttt{in}\ c_i' \longrightarrow [op_j]^\varepsilon_l(v_i; y_i. \m{do} x \leftarrow c_i \m{in} c_i')}
+  {\Delta_i(\varepsilon) = \varepsilon & op \not \in \varepsilon} $$
+$$
+\infer[\textsc{(T-seq)}]
+  {\Gamma\vdash \m{do} x_i \leftarrow c_i \m{in} c_i' : \{\varepsilon'\}\tau' }
+  {\Gamma \vdash c_i : \{\varepsilon'\}\tau & \Gamma, x_i:\tau \vdash c_i': \{\varepsilon'\}\tau'}  $$
+By inversion on T-Seq, we have $\Gamma \vdash [op_j]^\varepsilon_l(v_i; y_i.c_i): \{\varepsilon'\}\tau$ and $\Gamma, x:\tau \vdash c_i' : \{\varepsilon'\} \tau'$. Then by inversion on T-EmbedOp, we have $\Gamma, y_i:\tau_B \vdash c_i: \{\varepsilon'\}\tau$, $\overline{\Delta_i}(\varepsilon) \subseteq \varepsilon'$.
+Then by T-Seq, we have $\Gamma, y_i:\tau_B \vdash \m{do} x \leftarrow c_i \m{in} c_i' : \{\varepsilon'\}\tau'$. Then by T-EmbedOp, we have $\Gamma \vdash [op]^\varepsilon_l(v_i; y_i.  \m{do} x \leftarrow c_i \m{in} c_i' ): \{\varepsilon'\}\tau'$
+
+\item E-Handle1: Follows immediately by inversion on T-Handle and IH
+\item E-Handle2: By T-Handle, we have $\Gamma \vdash \m{with} h_i \m{handle} \m{return} v_i :  \{\varepsilon'\}\tau_B$. By inversion on T-Handle, we have $\Gamma, x_i:\tau_A \vdash c_i' : \{\varepsilon\}\tau_B$, and $\Gamma \vdash \m{return} v_i : \{\varepsilon\} \tau_A$. By inversion on T-Ret, we have $\Gamma \vdash v_i : \tau_A$. Then by substitution lemma, we have $\Gamma \vdash \{v_i/x_i\}c_i' : \{\varepsilon'\}\tau_B$. 
+
+\item E-Handle3
+$$
+\infer[\textsc{(E-Handle3)}]
+  {\m{with} h_i \m{handle} op(v_; y_i.c_i) \longrightarrow \{v_i/x_i\} \{(\lambda y_i: \tau_i'.
+   \m{with} h_i\m{handle} c_i) / k\}c_i' }
+  {op(x_i; k) \mapsto c_i' \in h_i & \Sigma(op) = \tau_i \rightarrow \tau_i'} 
+$$
+By T-Handle, we have $\Gamma \vdash \m{with} h_i \m{handle} op(v;y_i.c_i) :  \{\varepsilon'\}\tau_B$. By inversion on T-Handle, we have $\Gamma, x_i:\tau_i, k: \tau_i' \rightarrow \{\varepsilon'\}\tau_B \vdash c_i' : \{\varepsilon'\} \tau_B$, and $\Gamma \vdash op(v; y_i.c_i) : \{\varepsilon\} \tau_A$. By inversion on T-Op, we have $\Gamma \vdash v_i : \tau_i$ and $\Gamma, y_i: \tau_i' \vdash c_i: \{\varepsilon\}\tau_A$. By T-Handle, we have $\Gamma, y_i: \tau_i' \vdash \m{with} h_i \m{handle} c_i : \{\varepsilon'\}\tau_B$. Then by T-Lam, we have $\Gamma \vdash \lambda y_i:\tau_i'.\ \m{with} h_i \m{handle} c_i : \tau_i' \rightarrow  \{\varepsilon'\}\tau_B$. Then, by substitution lemma, we have $\Gamma \vdash \{v_i/x_i\} \{(\lambda y_i: \tau_i'.
+   \m{with} h_i\m{handle} c_i) / k\}c_i' : \{\varepsilon'\}\tau_B$.
+   
+\item E-Handle4:
+$$
+\infer[\textsc{(E-Handle4)}]
+  {\m{with} h_i \m{handle} [op]^\varepsilon_l(v_i, y_i.c_i) \longrightarrow [op]^\varepsilon_l(v_i; y_i. \m{with} h_i \m{handle} c_i))}
+  {\Delta_i(\varepsilon) = \varepsilon & op \not \in \varepsilon} 
+$$
+
+$$
+\infer[\textsc{(T-handle)}]
+  {\Gamma\vdash \m{with} h_i \m{handle} c_i: \{\varepsilon'\} \tau_B}
+  {\begin{gathered}
+  h_i = \{\m{return} x \mapsto c^r, op^1(x;k) \mapsto c^1, \dots, op^n(x;k) \mapsto c^n \}\\
+  \Gamma, x: \tau_A \vdash c^r : \{\varepsilon'\}\tau_B \quad
+  \left\{ \Sigma(op^i) = \tau_i \rightarrow \tau_i'  \quad \Gamma, x:\tau_i, k:\tau_i' \rightarrow \{\varepsilon'\}\tau_B \vdash c^i: \{\varepsilon'\}\tau_B    \right\}_{1 \leq i \leq n} \\
+  \Gamma \vdash c_i : \{\varepsilon''\}\tau_A \quad \varepsilon'' \setminus \{op^i\}_{1 \leq i \leq n} \subseteq \varepsilon'
+  \end{gathered}}
+$$
+By T-Handle, we have $\Gamma \vdash \m{with} h_i \m{handle} [op]^\varepsilon_l(v;y_i.c_i) :  \{\varepsilon'\}\tau_B$. By inversion on T-Handle, we have $\Gamma \vdash [op]^\varepsilon_l(v;y_i.c_i): \{\varepsilon''\}\tau_A$ and $\varepsilon'' \setminus \{op^i\} \subseteq \varepsilon'$. By inversion on T-EmbedOp, we have $\Gamma \vdash v_i: \tau_i$, $\Gamma, y_i:\tau_i' \vdash c_i : \{\varepsilon''\}\tau_A$ and $\varepsilon \subseteq \varepsilon''$. Since $\varepsilon$ doesn't contain any concrete operation, we have $\varepsilon \subseteq  \varepsilon'' \setminus \{op^i\} \subseteq \varepsilon' $. Then by T-Handle, we have $\Gamma, y_i: \tau_i' \vdash \m{with} h_i \m{handle} c_i : \{\varepsilon'\}\tau_B$. Then, we use T-EmbedOp to derive $\Gamma \vdash [op]^\varepsilon_l(v_i; y_i. \m{with} h_i \m{handle} c_i) : \{\varepsilon'\}\tau_B$
+
+
+\item E-Embed1: Follows immediately from Inversion and IH
+\item E-Embed2: By typing rule, we have $\Gamma \vdash [\m{return} v_j]^{\{\varepsilon\}\tau}_l :\{\varepsilon\}\tau$. By inversion on the typing rule, we have $\Gamma \vdash \m{return} v_j : \{\varepsilon'\}\tau'$ such that $\{\varepsilon\}\tau' \leq_{li} \{\varepsilon\}\tau$. By inversion on R-Sigma, we have $\tau' \leq_{li} \tau$. Then by T-EmbedExp, we have $\Gamma \vdash [v_j]^\tau_l : \tau$. Then by T-Ret, we have $\Gamma \vdash \m{return}  [v_j]^\tau_l : \{\varepsilon\}\tau$. $\Gamma \vdash [\m{return} v_j]^{\{\varepsilon\}\tau}_l :\{\varepsilon\}\tau$
+
+\item E-Embed3: 
+$$
+\infer[\textsc{(E-Embed3)}]
+{[op(v_j; y_j.c_j)]^{\{\varepsilon\}\tau}_l \longrightarrow [op]^\varepsilon_l([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_l)}
+{ \Sigma(op) = \tau_A \rightarrow \tau_B} 
+$$
+By typing rule, we have $\Gamma \vdash op(v_j; y_j.c_j) : \{\varepsilon'\}\tau'$, where $\{\varepsilon'\}\tau' \leq_{li} \{\varepsilon\}\tau$. By inversion on T-Op, we have $\Gamma \vdash v_j : \tau_A$, and $\Gamma, y_j : \tau_B \vdash c_j: \{\varepsilon'\}\tau'$. Then, by T-EmbedExp, we have $\Gamma \vdash [v_j]^{\tau_A}_j : \tau_A$. By substitution lemma, we have $\Gamma, y_i: \tau_B \vdash \{[y_i]^{\tau_B}_i/y_j\}c_j : \{\varepsilon'\}\tau'$. By T-Embed, we have $\Gamma, y_i: \tau_B \vdash \{[y_i]^{\tau_B}_i/y_j\}[c_j]^{\{\varepsilon\}\tau}_l : \{\varepsilon\}\tau$. Then we can use T-EmbedOp to derive $\Gamma \vdash [op]^\varepsilon_l([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_l): \{\varepsilon\}\tau$. 
+
+\item E-Embed4:
+$$
+\infer[\textsc{(E-Embed4)}]
+{[[op_k]^{\varepsilon'}_{l'}(v_j; y_j.c_j)]^{\{\varepsilon\}\tau}_l \longrightarrow [op_k]^\varepsilon_{l'jl}([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_l)}
+{ \Sigma(op_k) = \tau_A \rightarrow \tau_B& \Delta_j(\varepsilon') = \varepsilon' & op \not \in \varepsilon'} 
+$$
+By typing rule, we have $\Gamma \vdash [op_K]^{\varepsilon'}_{l'}(v_j; y_j.c_j) : \{\varepsilon''\}\tau''$, where $\{\varepsilon''\}\tau'' \leq_{li} \{\varepsilon\}\tau$. By inversion on T-EmbedOp, we have $\Gamma \vdash v_j: \tau_A$ and $\Gamma, y_j : \tau_B \vdash c_j: \{\varepsilon''\}\tau''$. Then, by T-EmbedExp, we have $\Gamma \vdash [v_j]^{\tau_A}_j : \tau_A$.
+By substitution lemma, we have $\Gamma, y_i: \tau_B \vdash \{[y_i]^{\tau_B}_i/y_j\}c_j : \{\varepsilon''\}\tau''$. By T-Embed, we have $\Gamma, y_i: \tau_B \vdash \{[y_i]^{\tau_B}_i/y_j\}[c_j]^{\{\varepsilon\}\tau}_l : \{\varepsilon\}\tau$. Then we use T-EmbedOp to derive $\Gamma \vdash [op_k]^\varepsilon_{l'jl}([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_l) : \{\varepsilon\}\tau$.
+\end{enumerate}
+\end{proof}
+\end{lemma}
+
+\begin{lemma} (Progress) \\
+If $\varnothing \vdash c_i : \{\varepsilon\} \tau$ then either
+\begin{enumerate}
+\item  $c_i \longrightarrow c_i'$ 
+\item  $c_i = \m{return} v_i$
+\item $c_i = op(v_i; y_i.c_i')$
+\item $c_i = [op]^\varepsilon_l(v_i; y_i.c_i')$
+ \end{enumerate}
+\end{lemma}
+
+\end{theorem}
+\begin{theorem} (Effect Abstraction)
+Let $e_i$ be the term such that Agents($e_i$) are oblivious to $f$ and $$\varnothing \vdash (\lambda x_i : (\tau_1 \rightarrow \{f\}\ \tau_2).\ e_i) : (\tau_1 \rightarrow \{f\}\ \tau_2) \rightarrow \{f\}\ \tau$$ Then let $v_j$ and $v_j'$ have  type $\Delta_j(\tau_1 \rightarrow \{f\}\ \tau_2)$. . Then$$(\lambda x_i : (\tau_1 \rightarrow \{f\}\ \tau_2).\ e_i )[v_j]^{(\tau_1 \rightarrow \{f\}\ \tau_2)}_j \longrightarrow^* c$$ if and only if
+$$(\lambda x_i : (\tau_1 \rightarrow \{f\}\ \tau_2).\ e_i )[v_j']^{(\tau_1 \rightarrow \{f\}\ \tau_2)}_j \longrightarrow^* c$$ 
+
+\end{theorem}
+
+
+
+\end{document}
+
+
+
+
+
+
