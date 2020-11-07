@@ -1,6 +1,11 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}\usepackage{amsmath}\usepackage{proof}\usepackage{ upgreek }
 \usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily,
+  mathescape
+}
+
 \usepackage[shortlabels]{enumitem}
 \usepackage{fancyvrb}
 \usepackage{amsmath,amssymb,amsthm,textcomp}
@@ -12,12 +17,14 @@
 \usepackage{ stmaryrd }
 \usepackage{ textcomp }
 
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+
 
 % Copied from ecoop paper
 \usepackage{microtype}%if unwanted, comment out or use option "draft"
 \usepackage{proof}
 \usepackage[dvipsnames]{xcolor}
-\usepackage{listings}
 \usepackage{calc}
 \usepackage{url}
 \newcommand{\keywadj}[1]{\mathtt{#1}}
@@ -781,199 +788,6 @@ Rules E-Congruence, E-New, E-Return, and E-Method are standard object-oriented d
 \begin{theorem} (Preservation) If $\Gamma \mid \Sigma \vdash e : \{\varepsilon\}\ \tau$, $\mu : \Sigma$, and ${ \langle e \mid \mu \rangle \longrightarrow \langle e' \mid \mu' \rangle }$, then there exists $\Sigma'$ such that $\Sigma \subseteq \Sigma'$, $\mu' : \Sigma'$, and $\Gamma \mid \Sigma' \vdash e' : \{\varepsilon\}\ \tau$
 \end{theorem}
 
-\pagebreak
-\section{Language with Explicit Typing}
-\subsection{syntax}
-\begin{figure}[H]
-\small{
-\[
-\begin{array}{lll}
-\begin{array}{lllr}
-e & ::= & x  & \mathit{expressions}\\
-& | & l \\
-& | & \keywadj{new}(x \Rightarrow \overline{d})  \\
-& | & e.m(e)  \\
-& | & x.op(e)  \\
-& | & handle \{ h \} e   \\
-& | & e \gg \{\varepsilon\}\ \tau\\
-d & ::= & \keyw{def} m(x : \tau) :  \{\varepsilon\} ~\tau = e &
-\mathit{declarations}\\
-& |   & \keyw{effect} E = \overline{\keyw{o}} \\
-& |   & \keyw{effect} E = \varepsilon \\
-
-
-
-\end{array}
-\begin{array}{lllr}
-
-
-\varepsilon & ::= & \overline{x.E} & \mathit{effects}\\
-\tau & ::= & \{ x \Rightarrow \overline{\sigma} \} & \mathit{type}\\
-\sigma & ::= & \keyw{def} m(x : \tau) : \{\varepsilon\} ~\tau & \mathit{decl.~types}\\
-       & |   & \keyw{effect} E = \overline{\keyw{o}}\\
-       & |   & \keyw{effect} E = \varepsilon\\
-       & |   & \keyw{effect} E \\
-     %  & |   & \keyw{effect} g = \{\varepsilon\} \leqslant \varepsilon' \\
-\keyw{o} & ::= & \keyw{def} op(x:\tau):  \tau & \mathit{operation}\\
-\keyw{h} & ::= & return\ x \rightarrow e & \mathit{handler}\\
-& | & x.op(x) \rightarrow e; h \\
-\Gamma & ::= & \emptyset \mid \Gamma, x:\tau & \mathit{typing\ context}\\
-\mu & ::= & \emptyset \mid \mu, l \mapsto \{x \rightarrow \overline{d}\} & \mathit{store}\\
-\Sigma & ::= & \emptyset \mid \Sigma, l : \tau & \mathit{store\ context}\\
-\
-\end{array}
-\end{array}
-\]
-}
-\caption{Language with explicit types}
-\end{figure}
-
-\subsection{Dynamic Semantics}
-\label{sec-dynamic}
-\begin{figure}[H]
-\flushleft
-
-
-
-\footnotesize{
-
-\[
-\begin{array}{lll}
-\begin{array}{lllr}
-C & ::= & [~] & \mathit{evaluation~context}\\
-  & |   & C.m(e)\\
-	  & |   & l.m(C)\\
-	  & |   & C.op(e)\\
-	  & |   &  l.op(C)\\
-  & |   & handle\{C\}e \\
-
-  & |   & handle\{h\}C \\
-  & |   & C \gg \{\varepsilon\}\ \tau  \\
-
-  & |   & l \gg \{C\}\ \tau  \\
-  & |   & l \gg \{\varepsilon\}\ C  \\
-  
-
-\end{array}
-\begin{array}{lllr}
-
-X_{l.op} & ::= &[~] & \mathit{evaluation~context~for~op}\\
-  & |  &  X_{l.op}.m(e)\\
-  & | &  l.m(X_{l.op})\\
-    & |  &  X_{l.op}.op(e)\\
-  & | &  l'.op(X_{l.op})\\
-  & | & Y_{l.op} \gg \{ \varepsilon \}\ \tau & \mathit{l.op \in \varepsilon}\\
-  & | & handle\{h\} (X_{l.op}) &\mathit{if~l.op \rightarrow e \not\in h}\\
-Y_{l.op} & ::= &[~] & \mathit{evaluation~context~for~op}\\
-  & |  &  Y_{l.op}.m(e)\\
-  & | &  l.m(Y_{l.op})\\
-    & |  &  Y_{l.op}.op(e)\\
-  & | &  l'.op(Y_{l.op})\\
-  & | & Y_{l.op} \gg \{ \varepsilon \}\ \tau\\
-  & | & handle\{h\} (Y_{l.op}) &\mathit{if~l.op \rightarrow e \not\in h}\\
-
-\
-\end{array}
-\end{array}
-\]
-
-
-\caption{Evaluation Contexts}
-
-$\fbox{$\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle$}$
-\[
-\begin{array}{c}
-\infer[\textsc{(E-Congruence)}]
-  {\langle C[e]~|~\mu \rangle \longrightarrow \langle C[e']~|~\mu' \rangle}
-  {\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle} \\[3ex]
-~~~~~
-\infer[\textsc{(E-New)}]
-  {\langle \keywadj{new} (x \Rightarrow \overline{d})  ~|~\mu \rangle \longrightarrow \langle l ~|~\mu, l \mapsto \{ x \Rightarrow \overline{d} \}  \rangle}
-  {l \not\in dom(\mu)}\\[3ex]
-
-
-%~~~~~~~~~~
-%\infer[\textsc{(E-Field)}]
-%  {\langle l.f~|~\mu \rangle \longrightarrow \langle l_1~|~\mu \rangle}
- % {l \mapsto \{ x \Rightarrow \overline{d} \} \in \mu & \keyw{var} f:\tau = l_1 \in \overline{d}}\quad 
-
-\infer[\textsc{(E-Return)}]
-  {\langle handle\{h\} (l) \mid \mu \rangle \longrightarrow \langle [l/x]e \mid \mu \rangle}
-  {return\ x \rightarrow e \in h}\\[3ex]
-  
-  \infer[\textsc{(E-Handle)}]
-  { \begin{gathered} 
-  \langle handle\{h\} (X_{l_1.op}[v_1.op(v_2)])  \mid \mu \rangle \longrightarrow \\
-  \langle [v_2/y][new(\_ \Rightarrow  \keyw{def} m(x: \tau) : \{\varepsilon' \}\ \tau' = handle\{h\}(X_{l_1.op}[x]))/resume]e :\{\varepsilon'\}\ \tau' \mid \mu \rangle
-  \end {gathered} }
-  { l_1.op(y) \rightarrow e \in h }\\[3ex]
-  
-  \infer[\textsc{(E-Method)}]
-  { \langle (l_1 \gg \tau_1).m(v_2)~|~\mu \rangle \longrightarrow \langle [l_1 /x][(v_2 \gg [l_1/x]\tau)/y]e \gg \{[(l_1 \gg \tau_1)/x][v_2/y]\varepsilon\}\ [(l_1 \gg \tau_1)/x][v_2/y]\tau'~|~\mu \rangle}
-  {   l_1 \mapsto \{ x \Rightarrow \overline{d} \}\in \mu & \keyw{def} m(y : \_) : \{ \_ \}~\_ = e \in \overline{d}  & \keyw{def} m(y: \tau) : \{\varepsilon\}\ \tau'  \in \tau_1} \\[3ex]
-  
-  \infer[\textsc{(E-Coercion)}]
-  {(l \gg \tau_1) \gg \tau_2 \longrightarrow l \gg \tau_2}
-  {}
-
-\end{array}
-\]
-}
-\caption{Wyvern dynamic semantics.}
-\label{f-effects-dynamic-semantics}
-\end{figure}
-
-\begin{verbatim}
-
-\end{verbatim}
-
-\newpage
-\section{Multi-agent calculus}
-\subsection{syntax}
-\begin{align*}
-&(agents) &i, j &::= \{1 \dots n\}\\
-&(lists) & l &::= i \mid il\\
-&(types) &\tau &::= \tau \rightarrow \{\varepsilon\}\ \tau \mid unit\\
-&(effects) &\varepsilon &::= f \mid op \mid \overline{\varepsilon}\\ 
-&(i-terms)  &e_i &::= x_i \mid \lambda x_i :\tau.\ e_i \mid e_i\ e_i'\mid op(e_i) \mid \texttt{handle}\ e_i\ \texttt{with}\ h_i \mid [e_j]^{\tau \mid \varepsilon}_l\\
-&(i-primval) &\hat{v_i} &::= () \mid \lambda x_i :\tau.\ e_i  \mid X^{op}[op(v_i)]\\
-&(i-value) &v_i &::= \hat{v_i} \mid [\hat{v_i}]^{\tau \mid \varepsilon}_l \quad\quad (\tau \mid \varepsilon) \not\in Dom(\delta_i)\\
-&(i-handler) &h_i &::= \texttt{return}\ x \mapsto e_i \mid op(x_i) \mapsto e_i\\
-\end{align*}
-
-\subsection{Typing Rules}
-$$\infer{\Gamma  \vdash () : unit}{} \quad \infer{\Gamma \vdash x_i : \Gamma (x_i)}{} \quad 
-\infer{\Gamma \vdash e_i\ e_i' : \tau' \mid \varepsilon}{\Gamma \vdash e_i: \tau' \rightarrow \{\varepsilon\}\ \tau \mid \varepsilon & \Gamma \vdash e_i' : \tau' \mid \varepsilon}$$
-$$ \infer{\lambda x_i : \tau'. e_i : \tau' \rightarrow \{\varepsilon'\}\ \tau \mid \varepsilon }{\Gamma, x_i:\tau' \vdash e:\tau  \mid \varepsilon'} $$
-$$\infer{\Gamma \vdash \texttt{handle} \{op_1(x_1) \mapsto e_1; \dots; op_n(x_n)\mapsto (e_n); \texttt{return}\ x \mapsto e_r\}\ (e) : \tau_r \mid \varepsilon'}
-{\begin{gathered} 
-\Gamma \vdash e : \tau \mid \varepsilon  \quad \Delta_i(\varepsilon) = op_1  \dots  op_n, \varepsilon'\\
-\Gamma, x:\tau \vdash e_r : \tau_r \mid \varepsilon' \quad \Gamma \vdash op_i : \tau_i \rightarrow \tau_i' \\
-\Gamma, resume: \tau_i' \rightarrow \{\varepsilon\}\ \tau_r, x_i : \tau_i \vdash e_i : \tau_r \mid \varepsilon'
-\end{gathered}
-} 
-$$
-$$\infer{\Gamma \vdash [e_j]^{\tau \mid \varepsilon}_l: \Delta_i(\tau) \mid \Delta_i(\varepsilon)}{\Gamma \vdash e_j:\tau' \mid \varepsilon' \quad \tau' \leq_l \tau \quad \varepsilon' \leq_l \varepsilon}$$
-\pagebreak
-\subsection{Dynamic Semantics}
-\begin{align*}
-E &::= [] \mid E\ e_i \mid v\ E \mid \texttt{handle}\ \{h\}\ E \mid [E]^{\tau\mid\varepsilon}_l \mid op(E) \\
-X^{op} &::= [] \mid X^{op}\ e \mid v\ X^{op}  \\
-				&\mid \texttt{handle}\ \{h\}\ X^{op}  &  \texttt{if}\ op \not \in h \\
-				&\mid [X^{op}]^{\tau \mid \varepsilon}_l  & \texttt{if}\ op\in\varepsilon \\
-\end{align*}
-\begin{align*}
-(\lambda x.\tau.\ e_i)\ v_i &\mapsto [v_i/x]e_i  \\
-\texttt{handle}\ \{h_i\}(v_i) &\mapsto [v_i/x]e_i  \quad \texttt{where}\ \texttt{return}\ x \mapsto e_i \in h_i\\
-\texttt{handle}\ \{h_i\}(X^{op}[op(v)]) &\mapsto [v/x_i][\lambda y.\ \texttt{handle}\ \{h_i\}(X^{op}[y])/resume]e_i \quad \texttt{where}\ op(x_i) \mapsto e_i \in h_i\\
-[\hat{v_j}]^{\tau \mid \varepsilon}_l &\mapsto [\hat{v_j}]^{\Delta_i(\tau \mid \varepsilon)}_l\\
-[[\hat{v_j}]^{u}_l]^v_{kl'} &\mapsto[\hat{v_j}]^{v}_{lkl'} \\
-[\lambda x_j: \tau. e_j]^{\tau' \rightarrow \{\varepsilon\}\ \tau'' \mid \varepsilon'}_{jl} &\mapsto \lambda x_i : \tau'. [[[x_i]^\tau_{irev(l)}/x_j]e_j]^{\tau'' \mid \varepsilon \cup \varepsilon'}_{jl}\\
-\end{align*}
-
-\begin{theorem}
-
-
 
 \newpage
 \section{Fine-grain call-by-value multi-agent calculus}
@@ -1381,12 +1195,288 @@ If $\varnothing \vdash c_i : \{\varepsilon\} \tau$ then either
  \end{enumerate}
 \end{lemma}
 
-\end{theorem}
-\begin{theorem} (Effect Abstraction)
-Let $e_i$ be the term such that Agents($e_i$) are oblivious to $f$ and $$\varnothing \vdash (\lambda x_i : (\tau_1 \rightarrow \{f\}\ \tau_2).\ e_i) : (\tau_1 \rightarrow \{f\}\ \tau_2) \rightarrow \{f\}\ \tau$$ Then let $v_j$ and $v_j'$ have  type $\Delta_j(\tau_1 \rightarrow \{f\}\ \tau_2)$. . Then$$(\lambda x_i : (\tau_1 \rightarrow \{f\}\ \tau_2).\ e_i )[v_j]^{(\tau_1 \rightarrow \{f\}\ \tau_2)}_j \longrightarrow^* c$$ if and only if
-$$(\lambda x_i : (\tau_1 \rightarrow \{f\}\ \tau_2).\ e_i )[v_j']^{(\tau_1 \rightarrow \{f\}\ \tau_2)}_j \longrightarrow^* c$$ 
+
+
+
+
+
+
+\begin{definition}
+A i-computation $c$ is \underline{oblivious} to effect label $f$ if $f \not\in Dom(\delta_i)$, and for all subexpression $[e]^\tau_j$ and subcomputation $[c]^\sigma_j$, $f \not\in Dom(\delta_j)$
+\end{definition}
+
+
+\begin{theorem} 
+
+Let $c_1$ and $c_2$ be computations that are oblivious to the effect $f$.  If $c_1 \approx c_2$, $c_1 \rightarrow c_1'$, $c_2 \rightarrow c_2'$, then $c_1' \approx c_2'$. Furthermore,  If $e_1, e_2$ oblivious to f, $e_1 \approx e_2$, $e_1 \rightarrow e_1'$, $e_2 \rightarrow e_2'$, then $e_1' \approx e_2'$
+
+The relation $\approx$ is defined as follows:
+\begin{figure}[H]
+\flushleft
+\footnotesize{
+
+$\fbox{$e \approx e$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(R-Var)}]{x \approx x}
+{} \qquad \infer[\textsc{(R-Unit)}]{() \approx ()}{} \\[3ex]
+\infer[\textsc{(R-Lam)}]{\lambda x:\tau.\ c \approx \lambda x:\tau.\ c'}{c \approx c'} \qquad
+\infer[\textsc{(R-EmbedExp)}]{[e]^\tau_l \approx [e']^\tau_l}{e \approx e'}
+\end{array}
+\]
+
+
+$\fbox{$c \approx c$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(R-Ret)}]
+  {\m{return} e \approx \m{return} e'}
+  {e \approx e'}  
+  \quad 
+\infer[\textsc{(R-op)}]
+  {op''(e; y.c) \approx op''(e'; y.c')}
+  {e \approx e' & c \approx c'}
+  \\[3ex]
+\infer[\textsc{(R-Seq)}]
+  {\m{do} x \leftarrow c \m{in} d \approx \m{do} x \leftarrow c' \m{in} d'}
+  {c \approx c' & d  \approx d'} \quad
+\infer[\textsc{(R-App)}]
+  {e_1\ e_2 \approx e_1'\ e_2'}
+  {e_1 \approx e_1' & e_2 \approx e_2'} \\[3ex]
+\infer[\textsc{(R-Handle)}]
+  {\m{with} h \m{handle} c \approx \m{with} h' \m{handle} c'}
+  {h \approx h' & c \approx c'} \quad 
+\infer[\textsc{(R-Embed)}]
+  {[c_j]^\sigma_l \approx [c_j']^\sigma_l}
+  {c_j \approx c_j'} \\[3ex]
+
+\infer[\textsc{(R-Embedop1)}]
+  {[op'']^\varepsilon_l(e; y.c) \approx [op'']^\varepsilon_l(e'; y.c')}
+  {e \approx e' & c \approx c'}
+  \quad
+\infer[\textsc{(R-Embedop2)}]
+  {[op]^\varepsilon_l(e; y.c) \approx [op']^\varepsilon_l(e'; y.c')}
+  {e \approx e' & c \approx c' & \exists i \in l, \delta_i(f) = op, op'} \\[3ex]
+\end{array}
+\]
+
+$\fbox{$h \approx h$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(R-Handler)}]{\begin{gathered} \{\m{return} x \mapsto c_r, op_1(x_1, k_1) \mapsto c_1, \dots, op_n(x_n, k_n) \mapsto c_n\} \approx \\\{\m{return} x \mapsto c_r', op_1(x_1, k_1) \mapsto c_1', \dots, op_n(x_n, k_n) \mapsto c_n'\}  
+ \end{gathered} }{ c_r \approx c_r' & c_1 \approx c_1', \dots c_n \approx c_n'} 
+\end{array}
+\]
+
+
+}
+\caption{Definition of $\approx_{op, op'}$}
+\end{figure}
+
+
+
+
+\begin{proof}(Sketch) By induction on derivation of $c_1 \approx c_2$ and $e_1 \approx e_2$
+\begin{enumerate}
+\item R-Ret:
+  The only reduction rule that applies is E-Ret, so we have $e_1 \longrightarrow e_1'$ and $e_2 \longrightarrow e_2'$. By IH, we have $e_1' \approx e_2'$. Then the result follows by R-Ret
+\item R-Op: The only reduction rule that applies is E-Op. The result is immediate by IH.
+\item R-Seq: If the reduction rule is E-Seq1, then result is immediate by IH. 
+
+If the reduction rule is E-Seq2. Then we have $c_1 = \m{do} x \leftarrow \m{return} v_1 \m{in} d_1$, $c_2 = \m{do} x \leftarrow \m{return} v_2 \m{in} d_2$. By inversion, we have $v_1 \approx v_2$ and $d_1 \approx d_2$. So we have $\{v_1/x\}d_1 \approx \{v_2/x\}d_2$.
+
+If the reduction rule is E-Seq3, then $c_1 = \m{do} x \leftarrow op(v_1; y. k_1) \m{in} d_1$, $c_2= \m{do} x \leftarrow op(v_2; y. k_2) \m{in} d_2$. By inversion, we have $k_1 \approx k_2$ and $d_1 \approx d_2$. So $\m{do} x \leftarrow k_1 \m{in} d_1 \approx \m{do} x \leftarrow k_2 \m{in} d_2$. So $op(v_1; y. \m{do} x \leftarrow k_1 \m{in} d_1) \approx op(v_2; y. \m{do} x \leftarrow k_2 \m{in} d_2)$. The proof is similar for rule E-Seq4.
+
+\item R-App: The cases for reduction rules E-App1 and E-App2 follows by IH. If reduction rule is E-App3. Then $c_1 = (\lambda x:\tau.\ d_1)\ v_1$ and $c_2 = (\lambda x:\tau.\ d_2)\ v_2$. By inversion we have $d_1 \approx d_2$ and $v_1 \approx v_2$. So we have $\{v_1/x\}d_1 \approx \{v_2/x\}d_2$.
+
+\item R-Handle: If reduction rule is E-Handle1, then result follows by IH. 
+
+If the reduction rule is E-Handle2. Then $c_1 = \m{with} h_1 \m{handle} \m{return} v_1$ and $c_2 = \m{with} h_2 \m{handle} \m{return} v_2$. By inversion we have $h_1 \approx h_2$, $v_1 \approx v_2$.  Let $\m{return} c_{r1} \in h_1$ and $\m{return} c_{r2} \in h_2$. By inversion we have $c_{r1} \approx c_{r2}$. So $\{v_1/x\}c_{r1} \approx \{v_2/x\}c_{r2}$.
+
+If the reduction rule is E-Handle3. Then $c_1 = \m{with} h_1 \m{handle} op(v_1; y. k_1)$ and $c_2 = \m{with} h_2 \m{handle} op(v_2; y.k_2) $. By inversion we have $v_1 \approx v_2$, $k_1 \approx k_2$ and $h_1 \approx h_2$. Then by equivalents rules we derive $c_1' \approx c_2'$. The case for E-Handle4 is similar.
+
+\item R-Embed: If reduction is E-Embed1,  result is immediate by IH. If reduction rule is E-Embed2, then $c_1 = [\m{return} v_1]^{\{\varepsilon\}\tau}_l$ and $c_2 = [\m{return} v_2]^{\{\varepsilon\}\tau}_l$. It is easy to see $[v_1]^\tau \approx [v_2]^\tau$. So the result holds.
+
+If the reduction rule is E-Embed3, Then $c_1 = [op(v_1; y. k_1)]{\{\varepsilon\}\tau}_l$ and $c_2 = [op(v_2; y. k_2)]^{\{\varepsilon\}\tau}_l$. By inversion we have $v_1 \approx v_1$, $k_1 \approx k_2$. Then by equivalent rules we have $c_1' \approx c_2'$. Same arguments apply for E-Embed4.
+
+\item R-EmbedOp1: If reduction rule is E-EmbedOp1, then result follows by IH. If reduction rules is E-EmbedOp2 or E-EmbedOp3, reduction does not affect terms except effect annotation, so the equivalence relation still hods after reduction.
+
+\item R-EmbedOp2: Reduction rules E-EmbedOp1 and E-EmbedOp2 are similar to the previous case. If the reduction rule is E-EmbedOp3, then by R-EmbedOp2, the operations $op$ and $op'$ are exported as effect $f$ by some agent, and since current agent is oblivious to $f$, this case is impossible.
+
+\end{enumerate}
+
+
+\end{proof}
+
 
 \end{theorem}
+
+\pagebreak
+\subsection{Abstraction Problem I}
+\begin{lstlisting}
+
+
+op : 1 -> 1
+  
+module b: B
+  f = op
+  def m() : {f} Unit
+    op ()
+  def handler(c: 1 -> {f} 1) : {} Int = 
+    handle c () with
+    |  op () -> 1
+    | return _ -> 0
+
+// Example program
+b.handler(
+  () => handle b.m() with
+          | op -> resume ()
+          | return _ -> ()
+ )
+
+// Translation of Example Program
+[$\lambda$c: 1 -> {f} 1. 
+  handle c() with 
+  | op(x, k) -> return 1
+  | return x -> return 0)]$^{(1 \rightarrow \{f\} 1) \rightarrow \{\} int}_b$
+($\lambda$_:1. 
+  handle [$\lambda$_:1. op()]$^{1 \rightarrow \{f\} 1}_b$ () with
+  | op(x, k) -> k ()
+  | return _ -> return ())
+  
+\\steps--->
+ ($\lambda$c: 1 -> {f} 1. 
+  [handle [c]$^{1 \rightarrow \{f\} 1}_a$  () with 
+  | op(x, k) -> return 1
+  | return x -> return 0)]$^{ \{\} int}_b$)
+($\lambda$_:1. 
+  handle [$\lambda$_:1. op()]$^{1 \rightarrow \{f\} 1}_b$ () with
+  | op(x, k) -> k ()
+  | return _ -> return ())
+  
+\\steps--->
+  [handle 
+     [$\lambda$_:1. 
+      handle [$\lambda$_:1. op()]$^{1 \rightarrow \{f\} 1}_b$ () with
+      | op(x, k) -> k ()
+      | return _ -> return () ]$^{1 \rightarrow \{f\} 1}_a$  () 
+  with 
+  | op(x, k) -> return 1
+  | return x -> return 0)]$^{ \{\} int}_b$
+ 
+ \\steps--->
+[handle 
+     $\lambda$_:1. 
+      [handle [$\lambda$_:1. op()]$^{1 \rightarrow \{f\} 1}_b$ () with
+      | op(x, k) -> k ()
+      | return _ -> return () ]$^{\{f\} 1}_a$  () 
+  with 
+  | op(x, k) -> return 1
+  | return x -> return 0)]$^{ \{\} int}_b$
+  
+\\steps--->
+[handle 
+      [handle [$\lambda$_:1. op()]$^{1 \rightarrow \{f\} 1}_b$ () with
+      | op(x, k) -> k ()
+      | return _ -> return () ]$^{\{f\} 1}_a$ 
+  with 
+  | op(x, k) -> return 1
+  | return x -> return 0)]$^{ \{\} int}_b$
+  
+
+\\steps--->
+[handle 
+      [handle $\lambda$_:1. [op()]$^{\{f\} 1}_b$ () with
+      | op(x, k) -> k ()
+      | return _ -> return () ]$^{\{f\} 1}_a$ 
+  with 
+  | op(x, k) -> return 1
+  | return x -> return 0)]$^{ \{\} int}_b$
+  
+\\steps--->
+[handle 
+      [handle [op()]$^{\{f\} 1}_b$ with
+      | op(x, k) -> k ()
+      | return _ -> return () ]$^{\{f\} 1}_a$ 
+  with 
+  | op(x, k) -> return 1
+  | return x -> return 0)]$^{ \{\} int}_b$
+  
+\\steps--->
+[handle 
+      [handle op$^f_b$((), y.return y) with
+      | op(x, k) -> k ()
+      | return _ -> return () ]$^{\{f\} 1}_a$ 
+  with 
+  | op(x, k) -> return 1
+  | return x -> return 0)]$^{ \{\} int}_b$
+  
+\\steps--->
+[handle 
+      [op$^f_b$((), y. handle return y with
+                       | op(x, k) -> k ()
+                       | return _ -> return () 
+          )]$^{\{f\} 1}_a$ 
+  with 
+  | op(x, k) -> return 1
+  | return x -> return 0)]$^{ \{\} int}_b$
+  
+\\steps--->
+[handle 
+      op$^f_{ba}$((), y. [handle return y with
+                       | op(x, k) -> k ()
+                       | return _ -> return ()]$^{\{f\} 1}_a$ 
+          )
+  with 
+  | op(x, k) -> return 1
+  | return x -> return 0)]$^{ \{\} int}_b$
+  
+\\steps--->
+[handle 
+      op((), y. [handle return y with
+                       | op(x, k) -> k ()
+                       | return _ -> return ()]$^{\{f\} 1}_a$ 
+          )
+  with 
+  | op(x, k) -> return 1
+  | return x -> return 0)]$^{ \{\} int}_b$
+  
+\end{lstlisting}
+
+\subsection{Effect Polymorphism}
+\subsubsection{Syntax}
+\begin{align*}
+&(agents) &i, j &::= \{1 \dots n\}\\
+&(lists) & l &::= i \mid il\\
+&(value\ types) &\tau &::= unit \mid \tau \rightarrow \sigma \mid \forall \alpha.\ \tau\\
+&(computation\ types) &\sigma &::= \{\varepsilon\}\tau\\
+&(effect\ types) &\varepsilon &::= \cdot \mid f, \varepsilon \mid op, \varepsilon \mid \alpha, \varepsilon\\
+&(i\  values) &{v_i} &::= ()_i \mid \lambda x_i:\tau.\ c_i \mid \Lambda \alpha.\ e\\
+&(i\ expression) &e_i &::= x_i \mid v_i \mid [e_j]^\tau_l \mid e\ [\varepsilon]\\
+&(i\ computation) &c_i &::= \texttt{return}\ e_i \mid op(e_i, y.c_i) \mid \texttt{do}\ x \leftarrow c_i\ \texttt{in}\ c_i' \mid e_i\ e_i' \mid \texttt{with}\ h_i\ \texttt{handle}\ c_i\\
+ &\ &\mid\ &[c_j]^\sigma_l \mid [op]^\varepsilon_l (e_i, y_i.c_i)\\
+&(i\ handler) &h_i &::= \texttt{handler}\ \{\texttt{return}\ x_i \mapsto c^r_i, op^1(x_i^1, k^1) \mapsto c_i^1 \dots  op^n(x_i^n, k^n) \mapsto c_i^n\}  
+\end{align*}
+
+\subsubsection{Dynamics}
+$$\infer{e\ [\varepsilon] \longrightarrow e'\ [\varepsilon]}{e \longrightarrow e'}$$ \quad
+$$\infer{(\Lambda \alpha.\ e)\ [\varepsilon] \longrightarrow \{\varepsilon/\alpha\} e}{}$$
+
+\subsubsection{Static Semantics}
+$$\infer{\Gamma \vdash \Lambda \alpha.\ e : \forall \alpha.\ \tau}{\Gamma, \alpha\ effect \vdash e: \tau}$$ \quad
+$$\infer{\Gamma \vdash e\ [\varepsilon] :  [\varepsilon / \alpha] \tau}{\Gamma \vdash e: \forall \alpha.\ \tau}$$ 
+
+\subsubsection{Encoding of Abstraction Problem II}
+\begin{lstlisting}
+f = op
+$\Lambda$a. $\lambda$c : (1 -> {a, f} 1).
+  handle 
+    c ()
+  with
+  | op(_, k) -> k ()
+  | return _ -> return ()
+\end{lstlisting}
+
 
 
 
