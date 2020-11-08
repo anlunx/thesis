@@ -1,0 +1,880 @@
+\chapter{Bounded Abstract Effects}
+
+\section{Wyvern Effect Basics}
+\label{sec:wyvern-effects-basics}
+
+\begin{figure}[t]
+\begin{lstlisting}
+resource type Logger
+   effect ReadLog
+   effect UpdateLog
+   def readLog(): {this.ReadLog} String
+   def updateLog(newEntry: String): {this.UpdateLog} Unit
+
+module def logger(f: File): Logger
+effect ReadLog = {f.Read}
+effect UpdateLog = {f.Append}
+def readLog(): {ReadLog} String = f.read()
+def updateLog(newEntry: String): {UpdateLog} Unit = f.append(newEntry)
+\end{lstlisting}
+\caption{A type and a module implementing the logging facility in the text-editor application.}
+\label{f-logger}
+\end{figure}
+
+Consider the code in Fig.~\ref{f-logger} that shows a type and a module implementing the logging facility of the text-editor application.  In the given implementation of the \li{Logger} type, the \li{logger} module accesses the log file.\footnote{The keyword \li{resource} in the type definition indicates that the implementations of this type may have state and may access system resources; this is orthogonal to effect checking.} All modules of type \li{Logger} must have two methods: the \li{readLog} method that returns the content of the log file and the \li{updateLog} method that appends new entries to the log file. In addition, the \li{Logger} type declares two \textit{abstract} effects, \li{ReadLog} and \li{UpdateLog}, that are produced by the corresponding methods. These effects are abstract because they are not given a definition in the \li{Logger} type, and so it is up to the module implementing the \li{Logger} type to define what they mean. The effect names are user-defined, allowing the choice of meaningful names.
+
+\begin{figure}[t]
+\begin{lstlisting}
+resource type File
+   effect Read
+   effect Write
+   effect Append
+   ...
+   def read(): {this.Read} String
+   def write(s: String): {this.Write} Unit
+   def append(s: String): {this.Append} Unit
+   ...
+\end{lstlisting}
+\caption{The type of the file resource.}
+\label{f-file}
+\end{figure}
+
+The \li{logger} module implements the \li{Logger} type. To access the file system, an object of type \li{File} (shown in Fig.~\ref{f-file}) is passed into \li{logger} as a parameter. The \li{logger} module's effect declarations are those of the \li{Logger} type, except now they are \textit{concrete}, i.e., they have specific definitions. The \li{ReadLog} effect of the \li{logger} module is defined to be the \li{Read} effect of the \li{File} object, and accordingly, the \li{readLog} method, which produces the \li{ReadLog} effect, calls \li{f}'s \li{read} method. Similarly, the \li{UpdateLog} effect of the \li{logger} module is defined to be \li{f.Append}, and accordingly, the \li{updateLog} method, which produces the \li{UpdateLog} effect, calls \li{f}'s \li{append} method. In general, effects in a module or object definition must always be concrete, whereas effects in a type definition may be either abstract or concrete.
+
+
+\subsection{Path-dependent Effects}
+
+Effects are members of objects\footnote{Modules are an important special case of objects}, so we refer to them with the form \li{variable.EffectName}, where \li{variable} is a reference to the object defining the effect and \li{EffectName} is the name of the effect. For example, in the definition of the \li{ReadLog} effect of the \li{logger} module, \li{f} is the variable referring to a specific file and \li{Read} is the effect that the \li{read} method of \li{f} produces. This conveniently ties together the resource and the effects produced on it (which represent the operations performed on it), helping a software architect or a security analyst to reason about how resources are used by any particular module and its methods. For example, when analyzing the effects produced by \li{logger}'s \li{readLog} method, a security analyst can quickly deduce that calling that method affects the file resource and, specifically, the file is read, simply by looking at the \li{Logger} type and \li{logger}'s effect definitions but not at the method's code. Furthermore, these properties can be automatically checked with an idiom of use: In addition to directly looking at the effect annotation of the method of the logger module, the security analyst may write client code that specify the effect that the logger module is allowed to have. If the logger module accesses system resources outside of the specified effect set, then the compiler would automatically reject the program.
+
+Because an effect includes a reference to an object instance, our effect system can distinguish reads and writes on different file instances. If the developer does not want this level of precision, it is still possible to declare effects at the module level (i.e., as members of a \li{fileSystem} module object instance), and to share the same \li{Read} and \li{Write} effects (for example) across all files in \li{fileSystem}.
+
+The basic mechanisms of path-dependence are borrowed from Scala and have been shown to scale well in practice. These mechanisms come from the Dependent Object Types (DOT) calculus \cite{amin14}, a type theory of Scala and related languages (including Wyvern). In our system, effects, instead of types are declared as members of objects.
+
+\subsection{Effect Abstraction}
+\label{sec:effect-abstraction}
+
+An important and novel feature of our effect system design is the support for \textit{effect abstraction}. Effect abstraction is the ability to define higher-level effects in terms of lower-level effects and potentially to hide that definition from clients of an abstraction. In the logging example above, through the use of abstraction, we ``lifted'' low-level resources such as the file system (i.e., the \li{Read} and \li{Append} effects of the file) into higher-level resources such as a logging facility (i.e., the \li{ReadLog} and \li{UpdateLog} effect of the logger) and enabled application code to reason in terms of effects on those higher-level resources when appropriate.
+
+Effect abstraction has several concrete benefits. First, it can be used to distinguish different uses of a low-level effect. For example, \li{system.FFI} describes any access to system resources via calls through the foreign function interface (FFI), but modules that define file and network I/O can represent these calls as different effects, which enables higher-level modules to reason about file and network access separately. Second, multiple low-level effects can be aggregated into a single high-level effect to reduce effect specification overhead. For instance, the \li{db.Query} effect might include both \li{file.Read} and \li{network.Access} effects. Third, by keeping an effect abstract, we can hide its implementation from clients, which facilitates software evolution: code defining a high-level effect in terms of lower-level ones can be rewritten (or replaced) to use a different set of lower-level effects without affecting clients (more on this in Section~\ref{sec-information-hiding}).
+
+
+\subsection{Effect Aggregation}
+
+Wyvern's effect-system design allows reducing the effect-annotation overhead by aggregating several effects into one. For example, if, to update the log file, the \li{logger} module needed to first read the file and then write it back, the \li{UpdateLog} effect would consist of two effects: a file read and a file write. In other effect systems, this change may make effects more verbose since all the methods that call the \li{updateLog} method would need to be annotated with the two effects. However, effect aggregation allows us to define the \li{UpdateLog} effect to be the two effects and then use \li{UpdateLog} to annotate the \li{updateLog} method and all methods that call it:
+
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[xleftmargin=-5pt, numbers=none]
+module def logger(f: File): Logger
+effect UpdateLog = {f.Read, f.Write}
+def updateLog(newEntry: String): {this.UpdateLog} Unit
+...
+\end{lstlisting}
+\end{minipage}
+This way we need to use only one effect, \li{UpdateLog}, instead of two, in method effect annotations, thus reducing the effect-annotation overhead. Because more code may add more effects, larger software systems might experience a snowballing of effects, when method annotations have numerous effects in them.
+
+
+\subsection{Controlling FFI Effects}
+Wyvern programs access system resources via calls to other programming languages, such as Java and Python, i.e., through a foreign function interface (FFI). To monitor and control the effects caused by FFI calls, we enforce that all functions from other programming languages, when called within Wyvern, are annotated with the \li{system.FFI} effect. 
+
+As was mentioned in Section~\ref{sec:effect-abstraction}, the \li{system.FFI} effect is an effect that describes function calls though an FFI. Since every function call though FFI has this effect, the access to system resources via FFI is guaranteed to be monitored. \li{system.FFI} is the lowest-level effect in the effect system which can be used to build other higher-level effects. The programmer can lift \li{system.FFI} to higher-level effects and reason about those higher-level effects instead.
+
+
+For example, Wyvern’s import mechanism works by loading an object in a static field of a Java class, and the following code imports a field of a Java class that helps to implement file IO:\\
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[xleftmargin=-5pt, numbers=none]
+  import java:wyvern.stdlib.support.FileIO.file
+\end{lstlisting}
+\end{minipage}
+
+The file object is itself of type FileIO. And FileIO has this method, among others: \\
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[xleftmargin=3pt, numbers=none]
+public void writeStringIntoFile(String content, String filename) throws IOException { ... }
+\end{lstlisting}
+\end{minipage}
+
+In Wyvern, there is a type wyvern.stdlib.support.FileIO as well as an object file (of that type) that gets added to the scope as a result of the import above. The type has the following member, corresponding to the method above: \\
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[xleftmargin=-5pt, numbers=none]
+  def writeStringIntoFile(content:String, filename:String): { system.FFI } Unit 
+\end{lstlisting}
+\end{minipage}
+
+Here, the system.FFI effect was added to the signature because this is a function that was imported via the FFI. The Wyvern file library that uses the \li{writeStringIntoFile} function abstracts this \li{system.FFI} effect into a library-specific \li{FileIO.Write} effect.
+
+
+
+\section{Effect Bounds}
+
+Our effect system also gives the programmer the ability to define a subtyping hierarchy of effects via effect bounds. To define the hierarchy, the programmer gives the effect member an upper bound or a lower bound, hiding the definition of the effect from the client.
+
+For example, consider the type \li{BoundedLogger} which has the same method declarations and effect members as the type \li{Logger} in Fig.~\ref{f-logger}, except the \li{ReadLog} and \li{UpdateLog} effects are upper-bounded by the corresponding effects in the \li{fileSystem} module:
+
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[xleftmargin=-5pt, numbers=none]
+resource type BoundedLogger
+   effect ReadLog <= {fileSystem.Read}
+   effect UpdateLog <= {fileSystem.Append}
+   ... // same as in the type Logger in Fig. 2
+\end{lstlisting}
+\end{minipage}
+Any object implementing type \li{BoundedLogger} may have an effect member \li{ReadLog} which is \textit{at most} \li{fileSystem.Read}. This allows programmers to compare the \li{ReadLog} effect with other effects, while keeping its definition abstract. For instance, a library can provide two implementations of \li{BoundedLogger}, including an effectless logger in which the effects \li{ReadLog} and \li{UpdateLog} are empty sets, and an effectful logger in which \li{ReadLog} and \li{UpdateLog} are defined as effects in the \li{fileSystem} module. The library's clients then can annotate the effects of both implementations with \li{fileSystem.Read} and \li{fileSystem.Append} according to the effect hierarchy, without the need to know the exact implementation of the two instances.
+
+Effect hierarchy can also be constructed using lower bounds. For example, consider the following type for I/O modules that supports writes:
+
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[xleftmargin=-5pt, numbers=none]
+type IO
+  effect Write >= {system.FFI}
+  def write(s: String): {this.Write} Unit
+\end{lstlisting}
+\end{minipage}
+Since I/O is done using the foreign function interface (FFI), the \li{Write} effect is \textit{at least} the \li{system.FFI} effect. Similar to providing an upper bounded on effects, this type does not specify the exact definition of the \li{Write} effect, and implementations of this type can define \li{Write} as an effect set with more effects than \li{\{system.FFI\}}.
+
+The effect hierarchy achieved by bounding effect members is supported by the subtyping relations of our effect system (Sections~\ref{sec-subeffecting} and \ref{sec-effects-subtyping}). If a type has an effect member with more strict bounds than another type, then the former type is a subtype of the latter type. For example, when a logger with the effect member \li{Read <= \{fileSystem.Read\}} is expected, we can pass in a logger with \li{Read = \{\}} because the definition as an empty set is more strict than an upper bound.
+
+The following two case studies  demonstrates the expressiveness of the effect hierarchy:
+
+\subsection{Controlling Access to UI Objects}
+
+This main idea of the work of \cite{gordon13} is to control the access of user interface (UI) framework methods so that unsafe UI methods can only be called on the UI thread. There are three different method annotations \li{@SafeEffect}, \li{@UIEffect}, and \li{@PolyUIEffect}, where
+\begin{enumerate}
+    \item \li{@SafeEffect} annotates methods that are safe to run on any thread,
+    \item \li{@UIEffect} annotates methods that is only callable on UI thread, and
+    \item \li{@PolyUIEffect} annotates methods whose effect is polymorphic over the receiver type's effect parameter.
+\end{enumerate}
+
+In Wyvern, we can model \li{@UIEffect} as a member of the UI module, for example:
+\begin{lstlisting}[numbers=none]
+type UILibrary
+  effect UIEffect >= {system.FFI}
+  def unsafeUIMethod1(): {this.UIEffect} Unit
+  def unsafeUIMethod2(): {this.UIEffect} Unit
+  ...
+\end{lstlisting}
+This way, any client code of an UI library that calls UI methods will have the \li{uilibrary.UIEffect} effect.
+
+An interface could be used for UI-effectful or UI-safe work. To accommodate such flexibility, $\mathit{Java}_{\mathit{UI}}$ introduced the \li{@PolyUIType} annotation. For example, a \li{Runnable} interface which can be UI-safe or UI-unsafe is declared as
+\begin{lstlisting}[numbers=none]
+@PolyUIType public interface Runnable {
+  @PolyUIEffect void Run();
+    }
+\end{lstlisting}
+
+Whether the method \li{Run()} will have a UI effect depends on an annotation when the type is instantiated. For example:
+\begin{lstlisting}[numbers=none]
+@Safe Runnable s =....;
+s.run(); // is UI safe
+@UI Runnable s = .....;
+s.run(); // has UI effect
+\end{lstlisting}
+
+In Wyvern, such polymorphic interface can be created by defining the interface with a bounded effect member:
+\begin{lstlisting}[numbers=none]
+type Runnable
+  effect Run <= {uiLibrary.UIEffect}
+  def run(): {this.Run} Unit
+\end{lstlisting}
+This type ensures that the \li{run} method is safe to be called on the UI thread. Moreover, if an instance of \li{Runnable} does not have \li{UIEffect}, it can be ascribed with the type \li{SafeRunnable}, which is a subtype of \li{Runnable}:
+\begin{lstlisting}[numbers=none]
+type SafeRunnable
+  effect Run = {}
+  def run(): {this.Run} Unit
+\end{lstlisting}
+This indicates that \li{run} is safe to be called on any thread.
+
+
+\subsection{Controlling Mutable States Using Abstract Regions}
+
+\cite{grennhouse99} proposed a region-based effect system which describes how state may be accessed during the execution of some program component in object-oriented programming languages. One example of the usage of regions is as follows:
+\begin{lstlisting}[numbers=none]
+class Point {
+  public region Position;
+  private int x in Position; 
+  private int y in Position; 
+  public scale(int sc) reads nothing writes Position {
+    x *= sc; 
+    y *= sc; 
+  }
+}
+\end{lstlisting}
+The two variables \li{x} and \li{y} are declared inside a region \li{Position}. For each region, there can be two possible effects: read and write. The \li{scale} method has the effect of writing on the region \li{this.Position}.
+
+To achieve access control on regions in Wyvern, we need to keep track of the read and write effect on each variable in a region. We declare the resource type \li{Var} representing a variable wrapper.
+\begin{lstlisting}[numbers=none]
+resource type Var[T]
+  effect Read
+  effect Write
+  def set (x: T): {this.Write} Unit
+  def get (): {this.Read} T
+\end{lstlisting}
+
+Since the \li{set} and \li{get} methods are annotated with the corresponding effects and there is no exposed access to the variable that holds the value, the two methods protect the access to the variable inside the type \li{Var}. To avoid code boilerplate, this wrapper type can be added as a language extension. The \li{Point} example above can be rewritten in Wyvern as:
+\begin{lstlisting}[numbers=none]
+resource type Point
+  val x: Var[Int]
+  val y: Var[Int]
+  effect Read >= {this.x.Read, this.y.Read}
+  effect Write >= {this.x.Write, this.y.Write}
+  def scale(sc: Int): {this.Write} Unit
+\end{lstlisting}
+
+We can also extend the type \li{Point} to \li{3DPoint} in the following way:
+\begin{lstlisting}[numbers=none]
+resource type 3DPoint
+  val x: Var[Int]
+  val y: Var[Int]
+  val z: Var[Int]
+  effect Read = {this.x.Read, this.y.Read, this.z.Read}
+  effect Write = {this.x.Write, this.y.Write, this.z.Write}
+  def scale(sc: Int): {this.Write} Unit
+\end{lstlisting}
+Since the effect \li{Read} and \li{Write} in the type \li{Point} is declared with a lower bound, the type \li{3DPoint} is a subtype of \li{Point}.
+
+
+
+
+
+
+
+
+\section{Formalization}
+\label{sec:formalization}
+
+As was mentioned earlier, Wyvern modules are first class and are, in fact, objects since they are only syntactic sugar on top of Wyvern's object-oriented core and can be translated into objects. The translation has been described in detail previously~\cite{melicher17}, and here we provide only some intuition behind it. In this section, we start with describing the syntax of Wyvern's object-oriented core, then present an example of the module-to-object translation, followed by a description of Wyvern's static semantics and subtyping rules.  Furthermore, we present the dynamic semantics and the type soundness theorems. Last but not least, we provide the definitions on authority and discuss why they are useful for security analysis on programs written in Wyvern.
+
+%Wyvern's effects are checked during the type checking phase and can be completely erased at the runtime. Also, Wyvern's dynamic semantics are rather standard and have been described in prior work~\cite{melicher17}. Thus, here we present only Wyvern's static semantics, whereas Wyvern's dynamic semantics can be found in Appendix~\ref{sec-dynamic-semantics}.\footnote{Appendix~\ref{sec-dynamic-semantics} also contains a full version of the core syntax and additional static semantics rules related to dynamic semantics. In addition, in the full version of our formalism, the static-semantics, well-formedness, and subeffecting rules also use use the store typing context, which we omit here.}
+
+
+\subsection{Object-Oriented Core Syntax}
+
+\begin{figure}[htb]
+\footnotesize{
+\[
+\begin{array}{lll}
+\begin{array}{lllr}
+e & ::= & x \\
+& | & \keyw{new}(x \Rightarrow \overline{d}) \\
+& | & e.m(e)\\
+& | & e.f \\
+& | & e.f = e 
+\end{array}
+\begin{array}{lllr}
+d & ::= & \keyw{def} m(x : \tau) : \{ \varepsilon \}~\tau = e \\
+  & |   & \keyw{var} f : \tau = x\\
+& |   & \keyw{effect} g = \{ \varepsilon \} \\
+\varepsilon & ::= & \overline{x.g} \\
+\tau & ::= & \{ x \Rightarrow \overline{\sigma} \} \\
+\Gamma & :: = & \varnothing~|~\Gamma,~x : \tau 
+\end{array}
+\begin{array}{lllr}
+\sigma & ::= & \keyw{def} m(x : \tau) : \{ \varepsilon \}~\tau \\
+       & |   & \keyw{var} f: \tau\\
+       & |   & \keyw{effect} g \\
+       & |   & \keyw{effect} g \geqslant \{ \varepsilon \} \\
+       & |   & \keyw{effect} g \leqslant \{ \varepsilon \} \\
+       & |   & \keyw{effect} g = \{ \varepsilon \} 
+\end{array}
+\end{array}
+\]
+}
+\caption{Wyvern's object-oriented core syntax.}
+\label{f-syntax}
+\end{figure}
+
+
+
+
+Fig.~\ref{f-syntax} shows the syntax of Wyvern's object-oriented core. Wyvern expressions include variables and the four basic object-oriented expressions: the \li{new} statement, a method call, a field access, and a field assignment. Objects are created by \li{new} statements that contain a variable $x$ representing the current object along with a list of declarations.  In our implementation, $x$ defaults to \li{this} when no name is specified by the programmer.  Declarations come in three kinds: a method declaration, a field, and an effect member. Method declarations are annotated with a set of effects. Object fields may only be initialized using variables, a restriction which simplifies our core language by ensuring that object initialization never has an effect. Although at first this may seem to be limiting, in fact, we do not limit the source language in this way. Side-effecting member initializations in the source language are translated to the core by wrapping the new object with a \li{let} expression (a discussion of which is upcoming) that defines the variable to be used in the field initialization. For example, this code:
+
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[xleftmargin=-5pt, numbers=none]
+new
+   var x: String = f.read()
+\end{lstlisting}
+\end{minipage}
+can be internally rewritten as:
+
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[xleftmargin=-5pt, numbers=none]
+let y = f.read()
+in new
+   var x: String = y
+\end{lstlisting}
+\end{minipage}
+Effects in method annotations and effect-member definitions are surrounded by curly braces to visually indicate that they are sets, and each effect in an effect set is defined to be a variable representing the object on which an effect is produced, followed by a dot and the effect name. Abstract effects may be defined with an upper bound or a lower bound.
+
+
+
+Object types are a collection of declaration types, which include method signatures, field-declaration types, and the types of effect-member declarations and definitions. Similar to the difference between the modules and their types, effects in an object must always be defined (i.e., always be concrete), whereas effects in object types may or may not have definitions (i.e., be either abstract or concrete), and may have an upper or lower bound.
+
+
+\subsection{Modules-to-Objects Translation}
+
+\begin{figure}[htb]
+\begin{lstlisting}
+$\keyw{let} \mathit{logger} = \keywadj{new}(x \Rightarrow$
+$\quad\keyw{def} \mathit{apply}(\mathit{f} : \mathit{File}) : \{ \}~\mathit{Logger}$
+$\quad\qquad\keywadj{new} (\_ \Rightarrow$
+$\qquad\qquad\keyw{effect} \mathit{ReadLog} = \{ \mathit{f}.\mathit{Read} \}$
+$\qquad\qquad\keyw{effect} \mathit{UpdateLog} = \{ \mathit{f}.\mathit{Append} \}$
+$\qquad\qquad\keyw{def} \mathit{readLog}() : \{ \mathit{ReadLog} \}~\mathit{String} = \mathit{f}.\mathit{read}()$
+$\qquad\qquad\keyw{def} \mathit{updateLog}(\mathit{newEntry} : \mathit{String}) : \{ \mathit{UpdateLog} \}~\mathit{Unit} = \mathit{f}.\mathit{append}(\mathit{newEntry})))$
+$\keyw{in} ... \mathit{//}~\mathit{calls}~\mathit{logger.apply(...)}$
+\end{lstlisting}
+\caption{A simplified translation of the \li{logger} module from Fig.~\ref{f-logger} into Wyvern's object-oriented core.}
+\label{f-module-translation}
+\end{figure}
+
+Fig.~\ref{f-module-translation} presents a simplified translation of the \li{logger} module from Fig.~\ref{f-logger} into Wyvern's object-oriented core (for a full description of the translation mechanism, refer to~\cite{melicher17}). For our purposes, the functor becomes a regular method, called \li{apply}, that has the return type \li{Logger} and the same parameters as the module functor. The method's body is a new object containing all the module declarations. The \li{apply} method is the only method of an outer object that is assigned to a variable whose name is the module's name. Later on in the code, when the \li{logger} module needs to be instantiated, the \li{apply} method is called with appropriate arguments passed in.
+
+To aid this translation mechanism, we use the two relatively standard encodings:
+
+\begin{minipage}{\linewidth}
+{\small
+\begin{tabular}{r@{\hskip 5pt}c@{\hskip 5pt}l}
+  $\keyw{let} x = e~\keyw{in} e'$ & $\equiv$ & $\keywadj{new} (\_ \Rightarrow \keyw{def} f(x : \tau) : \tau' = e').f(e)$\\%[5pt]
+  $\keyw{def} m(\overline{x : \tau}) : \tau = e$ & $\equiv$ & $\keyw{def} m(x : (\tau_1 \times \tau_2 \times ... \times \tau_n)) : \tau = [x.n/x_n]e$
+\end{tabular}
+}
+\end{minipage}
+The \li{let} expression is encoded as a method call on an object that contains that method with the \li{let} variable being the method's parameter and the method body being the \li{let}'s body. The multiparameter version of the method definition is encoded using indexing into the method parameters.
+
+
+
+\subsection{Well-formedness}
+\begin{figure}[!t]
+\flushleft
+\footnotesize{
+
+$\fbox{$\Gamma \vdash \tau~\mathit{wf}$}$
+\[
+\begin{array}{c}
+\hspace{-2pt}
+\infer[\textsc{(WF-Type)}]
+  {\Gamma \vdash \{ x \Rightarrow \overline{\sigma} \}~\mathit{wf}}
+  {\forall \sigma \in \overline{\sigma},~\Gamma,~x : \{ x \Rightarrow \overline{\sigma} \} \vdash \sigma~\mathit{wf}}\\[3ex]
+\end{array}
+\]
+
+$\fbox{$\Gamma \vdash \sigma~\mathit{wf}$}$
+\[
+\begin{array}{c}
+\hspace{-2pt}
+\infer[\textsc{(WF-Def)}]
+  {\Gamma \vdash \keyw{def}~ m(x : \tau_2) : \{ \varepsilon \}~\tau_1~\mathit{wf}}
+  {\Gamma \vdash \tau_2~\mathit{wf} & \Gamma,~x : \tau_2 \vdash \tau_1~\mathit{wf} & \Gamma,~x : \tau_2 \vdash \varepsilon~\mathit{wf}} \quad \quad
+~~~~~
+\infer[\textsc{(WF-Var)}]
+  {\Gamma \vdash \keyw{var} f : \tau~\mathit{wf}}
+  {\Gamma \vdash \tau~\mathit{wf}}\\[3ex]
+%~~~~~
+\infer[\textsc{(WF-Effect1)}]
+  {\Gamma \vdash \keyw{effect} g~\mathit{wf}}
+  {} \quad \quad
+~~~~~~~
+\infer[\textsc{(WF-Effect2)}]
+  {\Gamma \vdash \keyw{effect} g = \{ \varepsilon \}~\mathit{wf}}
+  {\Gamma \vdash \varepsilon~\mathit{wf}}\\[3ex]
+~~~~~~~
+\infer[\textsc{(WF-Effect3)}]
+  {\Gamma \vdash \keyw{effect} g \leqslant \{\varepsilon\} \ \mathit{wf}}
+  {\Gamma \vdash \varepsilon\  \mathit{wf}} \quad \quad
+~~~~~~~
+\infer[\textsc{(WF-Effect4)}]
+  {\Gamma \vdash \keyw{effect} g \geqslant \{\varepsilon\} \ \mathit{wf}}
+  {\Gamma \vdash \varepsilon\  \mathit{wf}} %\\[3ex] 
+\end{array}
+\]
+
+$\fbox{$\Gamma \vdash \varepsilon~\mathit{wf}$}$
+\[
+\begin{array}{c}
+\hspace{-2pt}
+\infer[\textsc{(WF-Effect)}]
+  {\Gamma \vdash \varepsilon~\mathit{wf}}
+  {\begin{gathered} \forall i,j,~x_i.g_j \in \varepsilon,\ \Gamma \vdash safe(x_i.g_j, \{\}), ~\Gamma \vdash x_i : \{ \}~\{ y_i \Rightarrow \overline{\sigma_i} \}, \\(\keyw{effect} g_j \in \overline{\sigma_i} \vee \keyw{effect} g_j = \{ \varepsilon_j \} \in \overline{\sigma_i} \vee \keyw{effect} g_j \geqslant \{ \varepsilon_j \} \in \overline{\sigma_i} \vee \keyw{effect} g_j \leqslant \{ \varepsilon_j \}\in \overline{\sigma_i}) \end{gathered}}\\[3ex]
+\end{array}
+\]
+
+
+$\fbox{$\Gamma \vdash safe(x.g, \varepsilon)$}$
+\[
+\begin{array}{c}
+\hspace{-2pt}
+\infer[\textsc{(Safe-1)}]
+  {\Gamma \vdash safe(x.g, \varepsilon)}
+  {\Gamma \vdash x: \{\} \{y \Rightarrow \overline{\sigma}\}, 
+  ~\keyw{effect} g = \{\varepsilon'\} \in \overline{\sigma} \\
+  \begin{gathered} \forall a.b \in \{x.g\}\cup\varepsilon, a.b \not\in [x/y]\varepsilon' \end{gathered} \\
+   \begin{gathered} \forall c.d \in [x/y]\varepsilon', \Gamma \vdash safe(c.d, \{x.g\}\cup\varepsilon \end{gathered})
+  } \\[3ex]
+\infer[\textsc{(Safe-2)}]
+  {\Gamma \vdash safe(x.g, \varepsilon)}
+  {\Gamma \vdash x: \{\} \{y \Rightarrow \overline{\sigma}\}, 
+  ~\keyw{effect} g \geqslant \{\varepsilon'\} \in \overline{\sigma} \\
+  \begin{gathered} \forall a.b \in \{x.g\}\cup\varepsilon, a.b \not\in [x/y]\varepsilon' \end{gathered} \\
+   \begin{gathered} \forall c.d \in [x/y] \varepsilon',  \Gamma \vdash safe(c.d, \{x.g\}\cup\varepsilon \end{gathered})
+  } \\[3ex]
+\infer[\textsc{(Safe-3)}]
+  {\Gamma \vdash safe(x.g, \varepsilon)}
+  {\Gamma \vdash x: \{\} \{y \Rightarrow \overline{\sigma}\}, 
+  ~\keyw{effect} g \leqslant \{\varepsilon'\} \in \overline{\sigma} \\
+  \begin{gathered} \forall a.b \in \{x.g\}\cup\varepsilon, a.b \not\in [x/y]\varepsilon' \end{gathered} \\
+   \begin{gathered} \forall c.d \in [x/y]\varepsilon',  \Gamma \vdash safe(c.d, \{x.g\}\cup\varepsilon \end{gathered})
+  }  \\[3ex]
+\infer[\textsc{(Safe-4)}]
+  {\Gamma \vdash safe(x.g, \varepsilon)}
+  {\Gamma \vdash x: \{\} \{y \Rightarrow \overline{\sigma}\}, 
+  ~\keyw{effect} g \\
+  } 
+\end{array}
+\]
+}
+\caption{Wyvern well-formedness rules.}
+\label{f-well-formedness}
+\end{figure}
+
+
+Since Wyvern's effects are defined in terms of variables, before we type check expressions, we must make sure that effects and types are well formed. Wyvern well-formedness rules are mostly straightforward and are shown in Fig.~\ref{f-well-formedness}. The three judgements read that, in the variable typing context $\Gamma$, the type $\tau$, the declaration type $\sigma$, and the effect set $\varepsilon$ are well formed, respectively.
+
+An object type is well formed if all of its declaration types are well formed. A method-declaration type is well formed if the type of its parameter, its return type, and the effects in its effect annotation are well formed. A field-declaration type is well formed if its type is well formed. Since an effect-declaration type has no right-hand side, it is trivially well formed. An effect-definition type is well formed if the effect set in its right-hand side is well formed. Finally, a bounded effect declaration is well formed if the upper bound or lower bound on the right-hand side is well formed. An effect set is well formed if, for every effect it contains, the definition of the effect doesn't form a cycle, the variable in the first part of the effect is well typed and the type of that variable contains either an effect-declaration or an effect-definition type, in which the effect name matches the effect name in the second part of the effect.
+
+The $\Gamma \vdash safe(x.g, \varepsilon)$ judgment ensures that the definition of effect $x.g$ doesn't contain a cycle. The rules Safe-1, Safe-2, and Safe-3 are identical except the declaration of the effect type. The effect set $\varepsilon$ memorizes a set of effects that are defined by $x.g$. The rule ensures that those effects do not appear in the definition of $x.g$, therefore eliminating cycles in effect definition.
+
+
+
+\subsection{Static Semantics}
+\label{sec-static-semantics}
+
+\begin{figure}[tb]
+\flushleft
+\footnotesize{
+\noindent$\fbox{$\Gamma \vdash e : \{ \varepsilon \}~\tau$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(T-Var)}]
+  {\Gamma \vdash x : \{ \}~\tau}
+  {x : \tau \in \Gamma} \quad \quad
+~~~~~~~
+\infer[\textsc{(T-New)}]
+	{\Gamma \vdash \keywadj{new} (x \Rightarrow \overline{d}) : \{ \}~\{ x \Rightarrow \overline{\sigma} \}}
+	{\forall i,~d_i \in \overline{d},~\sigma_i \in \overline{\sigma},~\Gamma,~x : \{ x \Rightarrow \overline{\sigma} \} \vdash d_i : \sigma_i}\\[3ex]
+%~~~~~~~~~~
+\infer[\textsc{(T-Method)}]
+  {\Gamma \vdash e_1.m(e_2) : \{ \varepsilon \}~[e_1/x][e_2/y]\tau_1}
+  {\begin{gathered} \Gamma \vdash e_1 : \{ \varepsilon_1 \} \{ x \Rightarrow \overline{\sigma} \}\quad \keyw{def} m(y : \tau_2) : \{ \varepsilon_3 \}~\tau_1 \in \overline{\sigma}\\
+  \Gamma \vdash [e_1/x][e_2/y]\varepsilon_3~\mathit{wf}\quad \Gamma \vdash e_2 : \{ \varepsilon_2 \}~[e_1/x]\tau_2 \quad \varepsilon = \varepsilon_1 \cup \varepsilon_2 \cup [e_1/x][e_2/y]\varepsilon_3 \end{gathered}}\\[3ex]
+%~~~~~~~~~~
+\infer[\textsc{(T-Field)}]
+	{\Gamma \vdash e.f : \{ \varepsilon \}~[e/x]\tau}
+	{\Gamma \vdash e : \{ \varepsilon \}~\{ x \Rightarrow \overline{\sigma} \} & \keyw{var}~ f : \tau \in \overline{\sigma}} \quad 
+%~~~~~~~~~~
+\infer[\textsc{(T-Sub)}]
+  {\Gamma \vdash e : \{ \varepsilon_2 \}~\tau_2}
+  {\Gamma \vdash e : \{ \varepsilon_1 \}~\tau_1 & \Gamma \vdash \tau_1 <: \tau_2 & \Gamma \vdash \varepsilon_1 <: \varepsilon_2} \\[3ex]
+%~~~~~~~~~~
+\infer[\textsc{(T-Assign)}]
+	{\Gamma \vdash  e_1.f=e_2 : \{ \varepsilon \}~[e_1/x]\tau}
+	{\Gamma \vdash e_1 : \{ \varepsilon_1 \}~\{ x \Rightarrow \overline{\sigma} \} & \keyw{var}~ f : \tau \in \overline{\sigma} & \Gamma \vdash e_2 : \{ \varepsilon_2 \}~\tau & \varepsilon = \varepsilon_1 \cup \varepsilon_2}
+\end{array}
+\]
+
+
+\noindent$\fbox{$\Gamma \vdash d : \sigma$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(DT-Def)}]
+  {\Gamma \vdash \keyw{def} m(x : \tau_1) : \{ \varepsilon_1 \}~\tau_2 = e~:~\keyw{def} m(x : \tau_1) : \{ \varepsilon_1 \}~\tau_2}
+  {\begin{gathered} \Gamma,~x : \tau_1 \vdash e : \{ \varepsilon_2 \}~\tau_2\quad\Gamma,~x : \tau_1 \vdash \varepsilon_1~\mathit{wf} \\
+  \Gamma, x : \tau_1 \vdash \varepsilon_2 <: \varepsilon_1 \end{gathered}}\\[3ex]
+
+\infer[\textsc{(DT-Var)}]
+  {\Gamma \vdash \keyw{var} f : \tau = x~:~\keyw{var} f : \tau}
+  {\Gamma \vdash x : \{ \}~\tau} \quad 
+
+\infer[\textsc{(DT-Effect)}]
+  {\Gamma \vdash \keyw{effect} g = \{ \varepsilon \}~:~\keyw{effect} g = \{ \varepsilon \}}
+  {\Gamma \vdash \varepsilon~\mathit{wf}}
+\end{array}
+\]
+}
+\caption{Wyvern static semantics.}
+\label{f-effects-static-semantics}
+\end{figure}
+
+Wyvern's static semantics is presented in Fig.~\ref{f-effects-static-semantics}. Expression type checking includes checking the effects that an expression may have, the set of which is denoted in a pair of curly braces between the colon and the type in the type annotation. Then, for expressions, the judgement reads that, in the variable typing context $\Gamma$, the expression $e$ is a well-typed expression with the effect set $\varepsilon$ and the type $\tau$.
+
+A variable trivially has no effects. A \li{new} expression also has no effects because of the fact that fields may be initialized only using variables. A new object is well typed if all of its declarations are well typed.
+
+A method call is well typed if the expression passed into the method as an argument is well typed, if the expression the method is called on is well typed, and if the expression's type contains a matching method-declaration type. In addition, bearing the appropriate variable substitutions, the effect set annotating the method-declaration type must be well formed, and the effect set $\varepsilon$ in the method-call type must be a union of the effect sets of both expressions involved in the method call as well as the the effect set of the method-declaration type. The expressions that are being substituted are always the terminal runtime form, i.e., the expressions have been fully evaluated before they are substituted.
+
+An object field read is well typed if the expression on which the field is dereferenced is well typed and the expression's type contains a matching field-declaration type. The effects of an object field type are those of the expression on which the field dereferencing is called.
+
+A field assignment is well typed if the expression to which the field belongs is well typed and the expression's type has an appropriate field-declaration type, and if the expression in the right-hand side of the assignment is well typed. The effect set that a field assignment produces is a union between the effect sets the two expressions that are involved in the field assignment produce.
+
+A type substitution of an expression may happen only if the expression is well typed using the original type, the original type is a subtype of the new type, and when the effect set of the original set is a subeffect of the effect of the new type. (Subeffecting is discussed in Section~\ref{sec-subeffecting}.)
+
+None of the object declarations produce effects, and so object-declaration type-checking rules do not include an effect set preceding the type annotation. For declarations, the judgement reads that, in the variable typing context $\Gamma$, the declaration $d$ is a well-typed declaration with the type $\sigma$.
+
+When type-checking a method declaration, the effect set annotating the method must be well formed in the overall typing context extended with the method argument. Furthermore, the effect annotating the method must be a supereffect of the effect the method body actually produced. 
+
+A field declaration is trivially well typed, and an effect declaration is well typed if the effect set that it is defined with is well formed in the given context.
+
+
+\subsection{Subtyping}
+
+\subsubsection{Subeffecting Rules}
+\label{sec-subeffecting}
+
+\begin{figure}[htb]
+\flushleft
+\footnotesize{
+\noindent$\fbox{$\Gamma \vdash \varepsilon <: \varepsilon'$}$
+\[
+\begin{array}{c}
+\hspace{-2pt}
+\infer[\textsc{(Subeffect-Subset)}]
+    {\Gamma   \vdash \varepsilon_1 <: \varepsilon_2}
+    {\varepsilon_1 \subseteq \varepsilon_2}\\[3ex]
+\infer[\textsc{(Subeffect-Upperbound)}]
+    {\Gamma   \vdash \varepsilon_1\cup\{n.g\} <: \varepsilon_2}
+    {\Gamma   \vdash n:\{y \Rightarrow \sigma\} \quad \keyw{effect} \ g \leqslant \varepsilon \in \sigma \quad \Gamma   \vdash [n/y]\varepsilon \cup \varepsilon_1 <: \varepsilon_2 }\\[3ex]
+\infer[\textsc{(Subeffect-Lowerbound)}]
+    {\Gamma  \vdash \varepsilon_1<: \varepsilon_2\cup\{n.g\} }
+    {\Gamma   \vdash n:\{y \Rightarrow \sigma\} \quad \keyw{effect}\ g \geqslant \{\varepsilon\} \in \sigma \quad \Gamma   \vdash \varepsilon_1 <: [n/y]\varepsilon \cup \varepsilon_2}\\[3ex]
+\infer[\textsc{(Subeffect-Def-1)}]
+    {\Gamma   \vdash \varepsilon_1<: \varepsilon_2\cup\{n.g\} }
+    {\Gamma   \vdash n:\{y \Rightarrow \sigma\} \quad \keyw{effect}\ g = \{\varepsilon\} \in \sigma \quad \Gamma   \vdash \varepsilon_1 <: [n/y]\varepsilon \cup \varepsilon_2}\\[3ex]
+\infer[\textsc{(Subeffect-Def-2)}]
+    {\Gamma  \vdash \varepsilon_1\cup\{n.g\} <: \varepsilon_2}
+    {\Gamma  \vdash n:\{y \Rightarrow \sigma\} \quad \keyw{effect}\ g = \{\varepsilon\} \in \sigma \quad \Gamma  \vdash [n/y]\varepsilon \cup \varepsilon_1 <: \varepsilon_2 }%\\[3ex]
+\end{array}
+\]
+}
+\caption{Wyvern subeffecting rules.}
+\label{f-subeffecting}
+\end{figure}
+
+\begin{figure}[t]
+\flushleft
+\footnotesize{
+\noindent$\fbox{$size(\Gamma, \varepsilon) = n$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(size-Empty)}]
+    {size(\Gamma, \{\}) = 0}
+    {}\\[3ex]
+\infer[\textsc{(size-Abstract)}]
+    {size(\Gamma, x.g) = 0}
+    {\Gamma \vdash x: \{y\Rightarrow \sigma\}\quad \keyw{effect}\ g\in \sigma}\\[3ex]
+\infer[\textsc{(size-List)}]
+    {size(\Gamma, \overline{x.g}) = \Sigma_{x.g\in \overline{x.g}}size(\Gamma, x.g)}
+    {}\\[3ex]
+\infer[\textsc{(size-Def)}]
+    {size(\Gamma, x.g) = 1+size(\Gamma, [x/y]\varepsilon)}
+    {\Gamma \vdash x : \{y\Rightarrow \sigma\}\quad \keyw{effect}\ g=\{\varepsilon\}\in\sigma}\\[3ex]
+\infer[\textsc{(size-Upperbound)}]
+    {size(\Gamma, x.g) = 1+size(\Gamma, [x/y]\varepsilon)}
+    {\Gamma \vdash x : \{y\Rightarrow \sigma\}\quad \keyw{effect}\ g \leqslant \{\varepsilon\}\in\sigma}\\[3ex]
+\infer[\textsc{(size-Lowerbound)}]
+    {size(\Gamma, x.g) = 1+size(\Gamma, [x/y]\varepsilon)}
+    {\Gamma \vdash x : \{y\Rightarrow \sigma\}\quad \keyw{effect}\ g \geqslant \{\varepsilon\}\in\sigma}%\\[3ex]
+\end{array}
+\]
+}
+\caption{Rules for determining the size of effect definitions.}
+\label{f-size}
+\end{figure}
+
+
+As we already saw in the \textsc{T-Sub}, and \textsc{DT-Def} rules above and as we will see more in the upcoming Section~\ref{sec-effects-subtyping}, to compare two sets of effects, we use subeffecting rules, which are presented in Fig.~\ref{f-subeffecting}. If an effect is a subset of another effect, then the former effect is a subeffect of the latter (\textsc{Subeffect-Subset}). If an effect set contains an effect variable that is declared with an upper bound, and the union of the rest of the effect set with the upper bound is a subeffect of another effect set, then the former effect set is a subeffect of the latter effect set (\textsc{Subeffect-Lowerbound}). If an effect set contains an effect variable that is declared with an lower bound, and the union of the rest of the effect set with the lower bound is a supereffect of another effect set, then the former effect set is a supereffect of the latter (\textsc{Subeffect-Lowerbound}). If an effect set contains an effect variable that has a definition, and the union of the rest of the effect set with the definition of the variable is a supereffect of another effect set, then the former effect set is a supereffect of the latter (\textsc{Subeffect-Def-1}). Finally, if an effect set contains an effect variable that has a definition, and the union of the rest of the effect set with the definition of the variable is a subeffect of another effect set, then the former effect set is a subeffect of the latter  (\textsc{Subeffect-Def-2}).
+
+\begin{lemma} $size(\Gamma, \varepsilon)$ (Defined in Fig. \ref{f-size}) is finite.
+\begin{proof}
+	By rules Safe-1, Safe-2, Safe-3, and Safe-4 in Fig. \ref{f-well-formedness}, the size of an arbitrary effect $x.g$ is bounded by the total number of effects in the context $\Gamma$.
+\end{proof}
+
+\begin{theorem}
+$\Gamma \vdash \varepsilon <: \varepsilon'$ is decidable.
+\begin{proof}
+The proof is by induction on $size(\Gamma, \varepsilon \cup \varepsilon')$. 
+\begin{itemize}
+\item[BC]  Since size for both effect is 0, the only applicable rule for subeffecting is Subeffect-Subset. The rule only checks if $\varepsilon$ is a subset of $\varepsilon'$, therefore is decidable.
+\item [IS] Assume the judgment $\Gamma \vdash \varepsilon <: \varepsilon'$ is derived from Subeffect-Upperbound. In the premise of this rule, we have $\Gamma \vdash [n/y]\varepsilon \cup \varepsilon_1 <: \varepsilon_2$. Since we extract the definition of $n.g$ to find $\varepsilon$, we have $size(\Gamma, [n/y]\varepsilon \cup \varepsilon_1 \cup \varepsilon_2) < size(\Gamma,  \{n.g\} \cup \varepsilon_1 \cup \varepsilon_2)$. We can then use induction hypothesis to show the subeffecting judgment in the premise is decidable.
+
+The inductive step for rules Subeffect-Lowerbound, Subeffect-Def-1, and Subeffect-Def-2 have the similar structure.
+\end{itemize}
+\end{proof}
+\end{theorem}
+\end{lemma}
+
+\subsubsection{Declarative Subtyping Rules}
+\label{sec-effects-subtyping}
+
+\begin{figure}[!t]
+\flushleft
+\footnotesize{
+$\fbox{$\Gamma \vdash \tau <: \tau'$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(S-Refl1)}]
+  {\Gamma \vdash \tau <:\tau}
+  {}%\\[3ex]
+~~~~~~~~~~\hspace{10pt}
+\infer[\textsc{(S-Trans)}]
+  {\Gamma \vdash \tau_1 <: \tau_3}
+  {\Gamma \vdash \tau_1 <: \tau_2 & \Gamma \vdash \tau_2 <: \tau_3}\\[3ex]
+
+\infer[\textsc{(S-Perm)}]
+  {\Gamma \vdash \{ x \Rightarrow \sigma_i^{i \in 1..n} \} <: \{ x \Rightarrow \sigma_i'^{i \in 1..n} \}}
+  {\{ x \Rightarrow \sigma_i^{i \in 1..n} \}~\mathit{is~a~permutation~of}~\{ x \Rightarrow \sigma_i'^{i \in 1..n} \}}\\[3ex]
+%~~~~~~~~~~
+\infer[\textsc{(S-Width)}]
+  {\Gamma \vdash \{ x \Rightarrow \sigma_i^{i \in 1..n + k} \} <: \{ x \Rightarrow \sigma_i^{i \in 1..n} \}}
+  {} \quad 
+%~~~~~~~~~~
+\infer[\textsc{(S-Depth)}]
+  {\Gamma \vdash \{ x \Rightarrow \sigma_i^{i \in 1..n} \} <: \{ x \Rightarrow {\sigma'}_i^{i \in 1..n} \}}
+  {\forall i,~\Gamma,~x : \{ x \Rightarrow {\sigma}_i^{i \in 1..n} \} \vdash \sigma_i <: \sigma_i'}
+
+\end{array}
+\]
+
+
+\noindent$\fbox{$\Gamma \vdash \sigma <: \sigma'$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(S-Refl2)}]
+  {\Gamma \vdash \sigma <: \sigma}
+  {} \quad
+%~~~~~
+\infer[\textsc{(S-Def)}]
+  {\Gamma \vdash \keyw{def} m(x : \tau_1) : \{ \varepsilon_1 \}~\tau_2 <: \keyw{def} m(x : \tau_1') : \{ \varepsilon_2 \}~\tau_2'}
+  {\Gamma \vdash \tau_1' <: \tau_1 & \Gamma \vdash \tau_2 <: \tau_2' & \Gamma, x : \tau_1 \vdash \varepsilon_1 <: \varepsilon_2 }\\[3ex]
+
+\infer[\textsc{(S-Effect-1)}]
+  {\Gamma \vdash \keyw{effect} g = \{ \varepsilon \} <: \keyw{effect} g}
+  {}\quad
+  \infer[\textsc{(S-Effect-2)}]
+  {\Gamma  \vdash \keyw{effect} g \leqslant \varepsilon <: \keyw{effect} g}
+  {} \\[3ex]
+  
+\infer[\textsc{(S-Effect-3)}]
+  {\Gamma  \vdash \keyw{effect} g = \{\varepsilon\} <: \keyw{effect} g \leqslant \varepsilon'}
+  {\Gamma  \vdash \varepsilon <: \varepsilon'}\quad
+
+\infer[\textsc{(S-Effect-4)}]
+  {\Gamma  \vdash \keyw{effect} g \leqslant \varepsilon <: \keyw{effect} g \leqslant \varepsilon'}
+  {\Gamma  \vdash \varepsilon <: \varepsilon'}\\[3ex]
+  
+\infer[\textsc{(S-Effect-5)}]
+  {\Gamma  \vdash \keyw{effect} g \geqslant \varepsilon <: \keyw{effect} g}
+  {}\quad 
+  
+\infer[\textsc{(S-Effect-6)}]
+  {\Gamma  \vdash \keyw{effect} g = \{\varepsilon\} <: \keyw{effect} g \geqslant \varepsilon'}
+  {\Gamma  \vdash \varepsilon' <: \varepsilon}\\[3ex]
+  
+\infer[\textsc{(S-Effect-7)}]
+  {\Gamma  \vdash \keyw{effect} g \geqslant \varepsilon <: \keyw{effect} g \geqslant \varepsilon'}
+  {\Gamma  \vdash \varepsilon' <: \varepsilon}\\[3ex]
+\end{array}
+\]
+}
+\caption{Wyvern subtyping rules.}
+\label{f-effects-subtyping-rules}
+\end{figure}
+
+Wyvern subtyping rules are shown in Fig.~\ref{f-effects-subtyping-rules}. Since, to compare types, we need to compare the effects in them using subeffecting, subtyping relationship is checked in a particular variable typing context. The first four object-subtyping rules and the \textsc{S-Refl2} rule are standard. In \textsc{S-Depth}, since effects may contain a reference to the current object, to check the subtyping relationship between two type declarations, we extend the current typing context with the current object. Method-declaration typing is contravariant in the argument types and covariant in the return type. Furthermore, there must be a covariant-like relationship between the effect sets in the method annotations on the two method declarations: the effect set of the subtype method declaration must be a subeffect of the effect set of the supertype method declaration (\textsc{S-Def}). An effect definition or an effect declaration with bound is trivially a subtype of an effect declaration (\textsc{S-Effect-1, S-Effect-2, S-Effect-5}). An effect definition is a subtype of an effect declaration with upper bound if the definition is a subeffect of the upper bound (\textsc{S-Effect-3)}. Similarly, an effect definition is a subtype of an effect declaration with lower bound if the definition is a supereffect of the lower bound (\textsc{S-Effect-6)}. An effect declaration with upper bound is a subtype of the effect declaration with another upper bound if the former upper bound is a subeffect of the latter upper bound (\textsc{S-Effect-4}). Finally, an effect declaration with lower bound is a subtype of the effect declaration with another lower bound if the former upper bound is a supereffect of the latter upper bound (\textsc{S-Effect-7}).
+
+\subsubsection{Algorithmic Subtyping Rules}
+\begin{figure}[H]
+\flushleft
+\footnotesize{
+$\fbox{$\Gamma \vdash \tau <: \tau'$}$
+\[
+\begin{array}{c}
+
+  
+
+\infer[\textsc{(S-Alg)}]
+  {\Gamma \vdash \{ x \Rightarrow \sigma_i^{i\in1\dots m}\} <: \Gamma \vdash \{ x \Rightarrow {\sigma'}_i^{i\in1\dots n}\}}
+  {\exists\ \mathit{an~injection~p}: \{1...n\} \mapsto \{1...m\},\quad \forall i\in 1...n, ~\Gamma,~x : \{ x \Rightarrow {\sigma}_i^{i \in 1..m} \} \vdash \sigma_{p(i)}<: \sigma_i'}
+
+\end{array}
+\]
+
+}
+\caption{Algorithmic Subtyping}
+\end{figure}
+
+The S-Alg rule encodes the S-Refl-1, S-Perm, S-Depth, and S-Width rule using an injective function $p$. The subtyping rules of declaration types are identical to the declarative subtyping. We prove that S-Trans rules is emissible in theorem \ref{theorem-transitivity}. 
+Since subtyping rules object types and declaration types are syntax-directed, the subtyping of our effect system is decidable.
+
+\begin{theorem} (Transitivity of algorithmic subtyping)\\
+If $\ \Gamma \vdash \tau_1 <: \tau_2$ and $\Gamma \vdash \tau_2 <: \tau_3$, then $\Gamma \vdash \tau_1 <: \tau_3$. \\
+If $\ \Gamma \vdash \sigma_1 <: \sigma_2$ and $\Gamma \vdash \sigma_2 <: \sigma_3$, then $\Gamma \vdash \sigma_1 <: \sigma_3$. 
+\label{theorem-transitivity}
+\end{theorem}
+
+
+\subsection{Dynamic Semantics and Type Soundness}
+
+
+\subsubsection{Object-Oriented Core Syntax}
+
+\begin{figure}[th]
+{\footnotesize
+\[
+\begin{array}{lll}
+\begin{array}{lllr}
+n & ::= & x~|~l & \mathit{names}\\
+e & ::= & n & \mathit{expressions}\\
+& | & \keywadj{new}(x \Rightarrow \overline{d}) \\
+& | & e.m(e)\\
+& | & e.f \\
+& | & e.f = e \\
+\varepsilon & ::= & \overline{n.g} & \mathit{effects}\\
+d & ::= & \keyw{def} m(x : \tau) : \{ \varepsilon \}~\tau = e &~\mathit{declarations}\\
+& |   & \keyw{var} f : \tau = n\\
+& |   & \keyw{effect} g = \{ \varepsilon \} \\
+\tau & ::= & \{ x \Rightarrow \overline{\sigma} \} & \mathit{object~type}\\
+\end{array}
+~~~
+\begin{array}{lllr}
+\sigma & ::= & \keyw{def} m(x : \tau) : \{ \varepsilon \}~\tau & \mathit{declaration~types}\\
+       & |   & \keyw{var} f: \tau\\
+       & |   & \keyw{effect} g \\
+       & |   & \keyw{effect} g \geqslant \{ \varepsilon \}\\
+       & |   & \keyw{effect} g \leqslant \{ \varepsilon \}\\
+       & |   & \keyw{effect} g = \{ \varepsilon \} \\
+\Gamma & :: = & \varnothing~|~\Gamma,~x : \tau & \mathit{var.~typing~context}\\
+\mu & :: = & \varnothing~|~\mu,~l \mapsto \{ x \Rightarrow \overline{d} \} & \mathit{store}\\
+\Sigma & :: = & \varnothing~|~\Sigma,~l : \tau & \mathit{store~typing~context}\\
+E & ::= & [~] & \mathit{evaluation~context}\\
+  & |   & E.m(e)\\
+  & |   & l.m(E)\\
+  & |   & E.f \\
+  & |   & E.f = e \\
+  & |   & l.f = E
+\end{array}
+\end{array}
+\]
+}
+\caption{Wyvern's object-oriented core syntax with dynamic forms.}
+\label{f-effects-syntax-with-dynamic-semantics}
+\end{figure}
+
+Fig.~\ref{f-effects-syntax-with-dynamic-semantics} shows the version of the syntax of Wyvern's object-oriented core that includes dynamic semantics. Specifically, expressions include locations $l$, which variables in effects resolve to at run time. We also use a store $\mu$ and its typing context $\Sigma$. Finally, to make the dynamics more compact we use an evaluation context $E$.
+
+
+\subsubsection{Changes in Static Semantics}
+\label{app-static-semantics-extra}
+
+\begin{figure}[!t]
+\flushleft
+\footnotesize{
+$\fbox{$\Gamma~|~\Sigma \vdash e : \{ \varepsilon \}~\tau$}$
+\[
+\begin{array}{c}
+\ldots
+\hspace{10pt}
+\infer[\textsc{(T-Loc)}]
+  {\Gamma~|~\Sigma \vdash l : \{ \}~\tau}
+  {l : \tau \in \Sigma}
+\end{array}
+\]
+
+\noindent$\fbox{$\Gamma~|~\Sigma \vdash d : \sigma$}$
+\[
+\begin{array}{c}
+\ldots
+\hspace{10pt}
+\infer[\textsc{(DT-Var)}]
+  {\Gamma~|~\Sigma \vdash \keyw{var} f : \tau = n~:~\keyw{var} f : \tau}
+  {\Gamma~|~\Sigma \vdash n : \{ \}~\tau}\\[3ex]
+\end{array}
+\]
+
+$\fbox{$\mu : \Sigma$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(T-Store)}]
+  {\mu : \Sigma}
+  {\forall l \mapsto \{ x \Rightarrow \overline{d} \} \in \mu,~\forall i,~d_i \in \overline{d},~\sigma_i \in \overline{\sigma},~x : \{ x \Rightarrow \overline{\sigma} \}~|~\Sigma \vdash d_i : \sigma_i}
+\end{array}
+\]
+}
+\caption{Wyvern static semantics affected by dynamic semantics.}
+\label{f-effects-static-semantics-extra}
+\end{figure}
+
+Type checking a location (\textsc{T-Loc}) and a field declaration (\textsc{DT-Var}) is straightforward, and we also need to ensure that the store is well-formed and contains objects that respect their types.
+
+
+\subsubsection{Dynamic Semantics}
+
+\begin{figure}[t]
+\flushleft
+\footnotesize{
+$\fbox{$\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle$}$
+\[
+\begin{array}{c}
+\infer[\textsc{(E-Congruence)}]
+  {\langle E[e]~|~\mu \rangle \longrightarrow \langle E[e']~|~\mu' \rangle}
+  {\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle} \quad \quad
+~~~~~
+\infer[\textsc{(E-New)}]
+  {\langle \keywadj{new} (x \Rightarrow \overline{d})~|~\mu \rangle \longrightarrow \langle l~|~\mu, l \mapsto \{ x \Rightarrow \overline{d} \} \rangle}
+  {l \not\in dom(\mu)}\\[3ex]
+
+\infer[\textsc{(E-Method)}]
+  {\langle l_1.m(l_2)~|~\mu \rangle \longrightarrow \langle [l_2/y][l_1/x]e~|~\mu \rangle}
+  {l_1 \mapsto \{ x \Rightarrow \overline{d} \} \in \mu & \keyw{def} m(y : \tau_1) : \{ \varepsilon \}~\tau_2 = e \in \overline{d}}\\[3ex]
+%~~~~~~~~~~
+\infer[\textsc{(E-Field)}]
+  {\langle l.f~|~\mu \rangle \longrightarrow \langle l_1~|~\mu \rangle}
+  {l \mapsto \{ x \Rightarrow \overline{d} \} \in \mu & \keyw{var} f:\tau = l_1 \in \overline{d}}\\[3ex]
+
+\infer[\textsc{(E-Assign)}]
+  {\langle l_1.f = l_2~|~\mu \rangle \longrightarrow \langle l_2~|~\mu' \rangle}
+  {\def\arraystretch{1.6}
+  \begin{array}{c}
+l_1 \mapsto \{ x \Rightarrow \overline{d} \} \in \mu~~~~~~~~~~~\keyw{var} f:\tau = l \in \overline{d} \\
+\overline{d}' = [\keyw{var} f:\tau = l_2/\keyw{var} f:\tau = l]\overline{d}~~~~~\mu' = [l_1 \mapsto \{ x \Rightarrow \overline{d}' \}/l_1 \mapsto \{ x \Rightarrow \overline{d} \}]\mu
+  \end{array}}%\\[3ex]
+\end{array}
+\]
+}
+\caption{Wyvern dynamic semantics.}
+\label{f-effects-dynamic-semantics}
+\end{figure}
+
+The dynamic semantics that we use for Wyvern's effect system is shown in Fig.~\ref{f-effects-dynamic-semantics} and is similar to the one described in prior work~\cite{melicher17}. In comparison to the prior work, this version of Wyvern's dynamic semantics has fewer rules, and the \textsc{E-Method} rule is simplified.
+
+The judgement reads the same as before: given the store $\mu$, the expression $e$ evaluates to the expression $e'$ and the store becomes $\mu'$. The \textsc{E-Congruence} rule still handles all non-terminal forms. To create a new object (\mbox{\textsc{E-New}}), we select a fresh location in the store and assign the object's definition to it. Provided that there is an appropriate method definition in the object on which a method is called, the method call is reduced to the method's body (\textsc{E-Method}). In the method's body, the locations representing the method argument and the object on which the method is called are substituted for corresponding variables. An object field is reduced to the value held in it (\textsc{E-Field}), and when an object field's value changes (\textsc{E-Assign}), appropriate substitutions are made in the object's declaration set and the store.
+
+\subsubsection{Type Soundness}
+We prove the soundness of the effect system presented above using the standard combination of progress and preservation theorems. Proof to these theorems can be found in Appendix \ref{app-effects-type-soundness}.
+
+\begin{theorem}[Preservation]
+If \mbox{$\Gamma~|~\Sigma \vdash e : \{ \varepsilon \}~\tau$}, \mbox{$\mu : \Sigma$}, and \mbox{$\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle$}, then \mbox{$\exists \Sigma' \supseteq \Sigma$}, \mbox{$\mu' : \Sigma'$}, $\exists \varepsilon'$, such that $\Gamma \vdash \varepsilon' <: \varepsilon$, and \mbox{$\Gamma~|~\Sigma' \vdash e' : \{ \varepsilon' \}~\tau$}.
+\label{theorem-preservation}
+\end{theorem}
+
+ \begin{theorem}[Progress]
+ \label{theorem-progress}
+If $\varnothing~|~\Sigma \vdash e : \{ \varepsilon \}~\tau$ (i.e., $e$ is a closed, well-typed expression), then either
+\begin{enumerate}
+\item $e$ is a value (i.e., a location) or
+\item $\forall \mu$ such that $\mu : \Sigma$,
+   $\exists e', \mu'$ such that $\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle$.
+\end{enumerate}
+\end{theorem}
+
+
+
+
+
+

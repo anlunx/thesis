@@ -1,0 +1,32 @@
+\chapter{Background and Motivation}
+
+\section{Descriptive Effect System}
+
+\noindent\textbf{Denotational vs. Descriptive Effects.}  \citet{filinski10} makes a distinction between two strands of work on effects. A \textit{denotational} approach, which includes algebraic effects, defines the semantics of computational effects based on primitives.  A \textit{restrictive} approach (e.g., Java's checked exceptions) takes effects that are already built into the language--such as reading and writing state or exceptions--and provides a way to restrict them. 
+
+
+\noindent\textbf{Origins of Effect Systems.}  Effect Systems were originally proposed by \citet{lucassen87} to track reads and writes to memory, and then \citet{lucassen88} extended this effect system to support polymorphism.  Effects have since been used for a wide variety of purposes, including exceptions in Java~\cite{kiniry06} and asynchronous event handling~\cite{bracevac18}. \citet{turbak08} previously proposed effects as a mechanism for reasoning about security, which is the main application that we discuss.
+
+
+\noindent\textbf{Prior Work on Bounded Effect Polymorphism.}  A limited form of bounded effect polymorphism were explored by~\citet{10.5555/645393.651891}, who bound effect parameters by the resources they may act on; however, the bound cannot be another aribrary effect, as in our system.  \citet{DBLP:conf/ecoop/LongLR15} use a form of bounded effect polymorphism internally but do not expose it to users of their system.
+
+\noindent\textbf{Path-Dependent Effects}
+JML's data groups~\cite{leino02} have some superficial similarities to Wyvern's effect members.  Data groups are identifiers bound in a type that refer to a collection of fields and other data groups.  They allow a form of abstract reasoning, in that clients can reason about reads and writes to the relevant state without knowing the underlying definitions.  Data groups are designed specifically to capture the modification of state, and it is not obvious how to generalize them to other forms of effects.
+
+The closest prior work on path-dependent effects, by \citet{grennhouse99}, allows programmers to declare regions as members of types; this supports a form of path-dependency in read and write effects on regions.  Our formalism expresses path-dependent effects based on the type theory of DOT~\cite{amin14}, which we find to be cleaner and easier to extend with the unique bounded abstraction features of our system.  Amin et al.'s type members can be left abstract or refined by upper or lower bounds, and were a direct inspiration for our work on bounded abstract effects.
+
+\noindent\textbf{Subeffecting.} 
+Some effect systems, such as Koka~\cite{leijen14}, provide a built-in set of effects with fixed sub-effecting relationships between them.
+\citet{rytz12} supports more flexibility via an extensible framework for effects.  Users can plug in their own domain of effects, specifying an effect lattice representing sueffecting relationships.  Each plugin is monolithic.  In contrast, our effect members allow new effects to be incrementally added and related to existing effects using declared subeffect bounds.
+
+
+
+\section{Algebraic Effects}
+\noindent\textbf{Algebraic Effects, Generativity, and Abstraction.}  Algebraic effects and handlers~\cite{plotkin03,plotkin09} are a way of implementing certain kinds of side effects such as exceptions and mutable state in an otherwise purely functional setting.  As described above, algebraic effects fall into the ``denotational'' rather than ``descriptive'' family of effects work; these lines of work are quite divergent, and it is often unclear how to translate technical ideas from one setting to the other.  However, certain papers explore parallels to our work, despite the major contextual differences.
+
+
+Bra\v{c}evac et al.~\cite{bracevac18} use algebraic effects to support asynchronous, event-based reactive programs. They need to use a different algebraic effect for each join operation that correlates events; thus, they want effects to be generative.  This generativity is at a per-module level, however, whereas our work supports per-object generativity.
+
+\citet{Zhang19} describe a design for algebraic effects that preserves abstraction in the sense of parametric functions: if a function does not statically know about an algebraic effect, that effect tunnels through that function.  This is different from our form of abstraction, in which the definition of an effect is hidden from clients.
+
+\citet{biernacki19} discuss how to abstract algebraic effects using existentials. The setting of algebraic effects makes their work quite different from ours: their abstraction hides the ``handler'' of an effect, which is a dynamic mechanism that actually implements effects such as exceptions or mutable state. In contrast, our work allows a high-level effect to be defined in terms of zero or more lower-level effects, and our abstraction mechanism allows the programmer to hide the lower-level effects that constitute the higher-level effect. Our system, unlike algebraic effect systems, is purely static. We do not attempt to implement effects, but rather give the programmer a system for reasoning about side effects on system resources and program objects. It is not clear that defining a high-level effect that encapsulates multiple low-level events is sensible in the setting of algebraic effects, since this would require merging effect implementations that could be as diverse as mutable state and exception handling. It is also not clear how Biernacki et al.'s abstraction of algebraic effects could apply to the security scenarios we examine in Section~\ref{sec:patterns}, since some of our scenarios rely critically on abstracting lower-level events as higher-level ones.

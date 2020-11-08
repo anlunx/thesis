@@ -2,37 +2,53 @@
 %starting all chapters on odd numbered pages
 \documentclass[12pt]{cmuthesis}
 
-% This is a template for a CMU thesis.  It is 18 pages without any content :-)
-% The source for this is pulled from a variety of sources and people.
-% Here's a partial list of people who may or may have not contributed:
-%
-%        bnoble   = Brian Noble
-%        caruana  = Rich Caruana
-%        colohan  = Chris Colohan
-%        jab      = Justin Boyan
-%        josullvn = Joseph O'Sullivan
-%        jrs      = Jonathan Shewchuk
-%        kosak    = Corey Kosak
-%        mjz      = Matt Zekauskas (mattz@cs)
-%        pdinda   = Peter Dinda
-%        pfr      = Patrick Riley
-%        dkoes = David Koes (me)
-
-% My main contribution is putting everything into a single class files and small
-% template since I prefer this to some complicated sprawling directory tree with
-% makefiles.
 
 % some useful packages
 \usepackage{times}
 \usepackage{fullpage}
 \usepackage{graphicx}
 \usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{proof}
+\usepackage{float} 
+\usepackage{amsthm}
+
+
+
 \usepackage[numbers,sort]{natbib}
 \usepackage[backref,pageanchor=true,plainpages=false, pdfpagelabels, bookmarks,bookmarksnumbered,
 %pdfborder=0 0 0,  %removes outlines around hyper links in online display
 ]{hyperref}
 \usepackage{subfigure}
 \usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
 \usepackage{setspace}
 
 % Approximately 1" margins, more space on binding side
@@ -42,6 +58,11 @@
 
 
 \newcommand{\li}[1]{\lstinline{#1}}
+\newcommand{\keywadj}[1]{\mathtt{#1}}
+\newcommand{\keyw}[1]{\keywadj{#1}~}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+
 
 
 % Provides a draft mark at the top of the document. 
@@ -82,9 +103,9 @@ For my dog
 
 
 \begin{abstract}
-Effect systems have been a subject of active research for nearly four decades, with the most notable practical example being checked exceptions in programming languages such as Java. While many exception systems support abstraction, aggregation, and hierarchy (e.g., via class declaration and subclassing mechanisms), it is rare to see such expressive power in more generic effect systems. We designed an effect system around the idea of protecting system resources and incorporated our effect system into the Wyvern programming language. Similar to type members, a Wyvern object can have effect members that can abstract lower-level effects, allow for aggregation, and have both lower and upper bounds, providing for a granular effect hierarchy. We argue that Wyvern's effects capture the right balance of expressiveness and power from the programming language design perspective. We present a full formalization of our effect-system design, show that it allows reasoning about authority and attenuation.  Our approach is evaluated through a security-related case study.\end{abstract}
+Effect systems have been a subject of active research for nearly four decades, with the most notable practical example being checked exceptions in programming languages such as Java.  The work on effects can be divided into two strands: The \textit{restrictive} approach (e.g., Java's checked exceptions), which takes effects that are already built into the language--such as reading and writing state or exceptions--and provides a way to restrict them. And the \textit{denotational} approach, which includes algebraic effects, defines the semantics of computational effects based on primitives. While there are many existing restrictive or denotational effect system, they are rarely designed with scalability in mind. In this thesis, we design multiple effect systems around the idea of making effect system scalable when developing large and complex softwares. The first part of our work is a restrictive path-dependent effect system that provide a granular effect hierarchy by allowing abstract effect members to be bounded. We present a full formalization of the effect-system, and provide an implementation as a part of the Wyvern programming language. The second part of our work presents a denotational effect-system that supports abstract algebraic effects. We give a formalization of the system and provide proofs for type soundness and dynamic semantic correctness of abstract algebraic effects. 
+\end{abstract}
 \begin{acknowledgments}
-My advisor is cool.
 \end{acknowledgments}
 
 
@@ -117,7 +138,9 @@ My advisor is cool.
 \doublespacing
 
 \input{Introduction}
-\chapter{Conclusion}
+\input{background}
+\input{bounded}
+
 
 %\appendix
 %\include{appendix}
