@@ -60,8 +60,10 @@
 \newcommand{\li}[1]{\lstinline{#1}}
 \newcommand{\keywadj}[1]{\mathtt{#1}}
 \newcommand{\keyw}[1]{\keywadj{#1}~}
+\newcommand{\m}[1]{\ \texttt{#1}\ }
 \newtheorem{theorem}{Theorem}
 \newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}{Definition}[section]
 
 
 
@@ -117,7 +119,7 @@ Effect systems have been a subject of active research for nearly four decades, w
 \mainmatter
 
 %% Double space document for easy review:
-%\renewcommand{\baselinestretch}{1.66}\normalsize
+\renewcommand{\baselinestretch}{1.66}\normalsize
 
 % The other requirements Catherine has:
 %
@@ -135,11 +137,11 @@ Effect systems have been a subject of active research for nearly four decades, w
 %  - Use a nice serif font, such as Times Roman.  Sans serif looks bad.
 %
 % Other than that, just make it look good...
-\doublespacing
 
 \input{Introduction}
 \input{background}
 \input{bounded}
+\input{algebraic}
 
 
 %\appendix
