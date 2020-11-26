@@ -1,43 +1,54 @@
+% !TEX root = thesis.tex
+
 \chapter{Abstract Algebraic Effects Via Embedding}
 
-\section{Motivation}
+\section{Background and Motivation}
 
-\begin{lstlisting}
-type A
-  effect E {
-    op1() : Unit
-  }
-  
-module a: A
-  effect E {
-    op1(): Unit
-  }
+Algebraic effects (introduced by \citet{plotkin02}) and handlers (introduced by \citet{plotkin09}) are an approach to computational effects based on a premise that impure behavior arises from a set of operations, and are recently gaining popularity due to its ability to model various form of computational effects such as exceptions, mutable states, async-await, etc.
 
-type B
+Modularity is a key concept that separates abstract algebraic effects from the traditional way of using monad to model effects in purely functional programming \cite{schrijvers19}. [Insert Reasons Here] 
+
+However, similar to the restrictive strand of work on effects, few works on algebraic effects has investigated the algebraic effect system on a larger scale, where abstraction between program components is important. \citet{biernacki19} first studied abstraction of algebraic effects and handlers, presented a calculus equipped with existential algebraic effects and typed runtime coercions, and provided an implementation as a proof of concept. 
+
+
+Abstract algebraic effects are first introduced in \cite{biernacki19}. Similar to abstract types, abstract effect signature allows program components to define abstract effect signatures that is opaque to other components in the system. The difference between concrete and abstract effect signatures lies in the ability for program components to handle them. If an effect signature is concrete to a program component, then the operations are accessible the component, and a handler can handles the effect by handling the operations in the signature. On the other hand, if an effect signature is abstract to one program component, then the component should not observe the operations defined in the effect signature, and is therefore unable to handle the effect. As abstraction is an important issue for module systems because it provides a separation of implementation details of functions from the interface, abstraction of algebraic effects provides a similar benefit for modularity because it helps separate the component operations from the effect signature, ensuring that the client can only uses the handler provided by the library to handle the effect.
+
+The following code is a motivating example similar to the example in \cite{biernacki19} that illustrates the challenges of implementing abstract algebraic effects. \li{Nondet} is a globally defined effect signature. Then we define a module \li{m} with type \li{M} with an abstract effect \li{E}, a method \li{mflip}, and a handler method \li{handle}. The effect \li{E} is defined by \li{Nondet}, but is opaque to the outside world of the module, because \li{E} is defined as an abstract effect in the type \li{M}. The method \li{mflip} simply calls the \li{flip} operation, and the \li{handle} method handles the \li{flip} operation by returning \li{true}. 
+
+\begin{lstlisting}[language=scala]  
+effect Nondet {
+    flip(): Bool  
+}
+
+type M
   effect E 
-  def handler(Unit -> {this.E} T) : {} T
+  def mflip() : {this.E} Bool
+  def handler(Unit -> {this.E} Bool) : {} Bool
   
-module b: B
-  effect E = {a.E}
-  def m() : {this.E} Unit
-    a.op1()
-  def handler(c: Unit -> {this.E} T) : {} T = 
+module m: M
+  effect E = {Nondet}
+  def mflip() : {this.E} Unit
+    flip()
+  def handle(c: Unit -> {this.E} Bool) : {} Bool = 
     handle c() with
-    | a.op1() -> resume ()
+    | flip() -> return true
 
-(b >> B).handler(
-  () => handle (b >> B).m() with
-          | a.op1() -> ()
+m.handle(
+  () => handle m.mflip() with
+          | flip() ->  return false
  )
 
 \end{lstlisting}
 
-In the last expression, the method call \texttt{b.m()} handled by two nested handlers. Since the effect of \texttt{b.m} is abstract, the inner handler should not handle the expression because it handles the concrete effect \texttt{a.E}. Instead, the operation in \texttt{b.m()} should be handled by the outer handler.
+The last segment of the above example shows an client code of module \li{m} that calls the method \li{m.handle} and pass in an expression that encapsulate the call to \li{m.mflip} by another handler that handles the \li{flip} operation. Since the effect of the method \li{m.mflip} is abstract, the inner handler should not handle the operation inside \li{m.mflip}. Instead, the operation should be handled by the outer handler method \li{m.hanlde}. However, 
 
-In order to solve this problem, we introduce the language with the \texttt{wrap} and \texttt{unwrap} constructs to ensure the correctness of dynamic semantics. 
+As we can see, the abstraction of effect signatures from type abstractions, since the erasure of type information would make the abstraction unsound. So we need a language that keep track of the information on effect abstraction during the evaluation of the program. In this work, we incorporate the method of syntactic type abstraction introduced by \citet{grossman00}, who use the notion of principals to track the flow of values with abstract types during the evaluation of a program. 
 
-\section{Fine-grain call-by-value multi-agent calculus}
-\subsection{syntax}
+\section{Core Calculus}
+\label{sec-core}
+\subsection{Syntax}
+\begin{figure}
+\label{fig-syntax}
 \begin{align*}
 &(agents) &i, j &::= \{1 \dots n\}\\
 &(lists) & l &::= i \mid il\\
@@ -50,8 +61,70 @@ In order to solve this problem, we introduce the language with the \texttt{wrap}
  &\ &\mid\ &[c_j]^\sigma_l \mid [op]^\varepsilon_l (e_i, y_i.c_i)\\
 &(i\ handler) &h_i &::= \texttt{handler}\ \{\texttt{return}\ x_i \mapsto c^r_i, op^1(x_i^1, k^1) \mapsto c_i^1 \dots  op^n(x_i^n, k^n) \mapsto c_i^n\}  
 \end{align*}
-\subsection{Operational Semantics}
-\begin{figure}[H]
+\caption{Syntax for multi-agent calculus}
+\end{figure}
+
+This section describes a variant of the simply typed lambda calculus that maintains a syntactic distinction between agents throughout evaluation. Figure \ref{fig-syntax} gives the syntax of our calculus. As our previous discussion, it is crucial to keep track of the effect abstraction information during the evaluation of the program. It is therefore natural to divide the code into agents, and allow each agent to export abstract effect signatures. We assume that there are $n$ agents, and use variables $i, j, k$ to range over the set of agents. 
+
+Every term in this language is assigned to an agent. And terms are split into inert expressions and potentially effectful computations, following an approach called \emph{fine-grain call-by-value}, introduced by \citet{levy03}. We use the notation \emph{i-expression} and \emph{i-computation} to denote expressions and computations in the agent i. We use subscripts to indicate a term is assigned to an agent, however, we will omit the subscript if the agent the term belongs to is not important or obvious in the context.
+
+An \emph{i-value} is an \emph{i-expression} that cannot further reduce. There are two forms of \emph{i-value}: the unit $()$, and the lambda abstraction $\lambda x_i: \tau.\ c_i$. \emph{i-expressions} include variable $x_i$, value $v_i$, and embedded expressions $[e_j]^\tau_j$. \emph{i-computations} are the terms that can potentially cause effects, and consists of return statement $\m{return} e_i$, operation call $op(e_i; y_i.c_i)$, sequencing $\m{do} x_i \leftarrow c_i \m{in} c_i'$, application $e_i\ e_i'$, handling $\m{with} h_i \m{handle} c_i$, embedded computation $[c_j]^\sigma_j$, and embedded operation call $[op]^\varepsilon_l(e_i; y_i.c_i)$. There are few things worth mentioning: 
+\begin{enumerate}
+\item[] \textbf{Sequencing}: in $\m{do} x \leftarrow c \m{in} c'$, we first evaluate $c$,  bind the return value of $c'$ to x and then evluate $c_2$
+\item[] \textbf{Operation Calls}: The call $op(e; y.c)$ passes the parameter $e$ to the operation $op$,  binds the return value of the operation call to $y$, and continue by evaluating the computation $c$. Note that the encompassing handler could potentially change the behavior of the operation.
+\item[] \textbf{Embeddings}: the term $[e_j]^\tau_j$ is i-expression that contains an embedded j-expression, with a type $\tau$ exported by $j$. Similarly, $[c_j]^\sigma_j$ is an embedded j-expression with exported type $\sigma$ 
+\item[] \textbf{Embedded Operations}: The embedded operation $[op]^\varepsilon_l(e; y.c)$ is a operation call that is annotated with effect $\varepsilon$. $l$ is a list of agents that have contributed to the formation of the annotation. We will describe this in more detail later.
+\end{enumerate}
+
+Similar to terms, types are also divided into expression types and computation types. There are two forms of expression types $\tau$: the unit type $1$, and the arrow type $\tau \rightarrow \sigma$. As for the computation type $\sigma$, there is only one form: $\{\varepsilon\}\tau$: where $\varepsilon$ is a set of effect that the computation might induce, and $\tau$ is the type of the return value of the computation. 
+
+The effect type $\varepsilon$ represents an unordered set of effects that can be empty $\cdot$. A effect type can be extended by either an effect label $f$, or an operation $op$.
+
+The i-handler $h_i$ must contain a return clause that handles the case when the handled computation directly returns a value. It may also contain clauses that handle operations. For example, the clause $op(x, k) \mapsto c$ handles the operation $op$. More details can be found in the dynamic semantics section.
+
+\subsection{Agent Specific Type Information}
+We use agents to model a module system where each module can have private information about effect abstraction. Each agent in our language has limited knowledge of effect abstraction. For example, an agent i might knows that effect \li{Nondet = flip(): Bool}, and an agent $j$ does not have this information. As a result, agent i would be able to handle a computation with effect \li{Nondet}, while the agent j would not be able to do that. Furthermore, we need to ensure the consistency the information on effect abstraction, that is, agent j should not think that the effect \li{Nondet = read(): String}, which would contradict with the knowledge of agent i. 
+
+The model of effect abstraction information is similar to the model of type information in \cite{grossman00}. To capture effect abstraction information, each agent $i$ has a partial function $\delta_i$ that maps an effect label to an effect type. There are two requirement for these maps: (1) For each effect label $f$, the if there are two agents that knows the implementation of the effect $f$, then there knowledge about the implementation must be the same. (2) For each effect label $f$, there is a unique and most concrete interpretation of $f$. We would not allow the effect label $f$ itself to appear in the implementation of $f$. Examples like $\delta_i(f) = \{f\}$ would be rejected.
+
+\begin{definition}
+A set $\{\delta_1, \dots, \delta_n\}$ of maps from effect labels to effects is \underline{compatible} if
+\begin{enumerate}
+\item For all $i, j \in 1 \dots n$ if $f \in Dom(\delta_i) \cap Dom(\delta_j)$, then $\delta_i(f) = \delta_i(j)$.
+\item Effect labels can be totally ordered such that for every agent $i$ and effect label $f$, all effect labels in $\delta_i(f)$ precede $f$.
+\end{enumerate}
+\end{definition}
+
+Then we define the a total function $\Delta_i$ that refines an effect type:
+\begin{definition}
+\begin{align*}
+\Delta_i(\cdot) &= \cdot \\
+\Delta_i(op, \varepsilon) &= op, \Delta_i(\varepsilon) \\
+\Delta_i(f, \varepsilon) &= 
+    \begin{cases}
+      f, \Delta_i(\varepsilon) & \text{if}\ f \not\in Dom(\delta_i)  \ \\
+      \varepsilon', \Delta_i(\varepsilon) & \text{if}\ \delta_i(f) = \varepsilon'
+    \end{cases}
+\end{align*}
+\end{definition}
+
+The definition of compatibility ensures that there is a fixpoint for repeatedly refining an effect label $f$ using the function $\Delta_i$. We call such fixpoint $\overline{\Delta_i}(f)$.
+
+\begin{definition}
+$\overline{\Delta_i}(f) = \varepsilon$ if there is some $n \geq 0$
+\[
+    \underbrace{\Delta_i(\dots (\Delta_i(f) \dots )}_\text{n applications}   = 
+    \underbrace{\Delta_i(\dots (\Delta_i(f) \dots )}_\text{n+1 applications}   = \varepsilon
+ \]
+ \end{definition}
+ 
+ We assume that the type information for operations are public to all agents. The type  for an operation $op$ is contained a separate map $\Sigma$, which maps an operation $op$ to an arrow type $\tau_A \rightarrow \tau_B$. Note that this is different from the function type in our calculus, which has the form $\tau \rightarrow \sigma$.
+
+
+
+
+\section{Operational Semantics}
+\begin{figure}[t]
 \footnotesize{
 
 
@@ -67,10 +140,18 @@ $\fbox{$e \longrightarrow e'$}$
   {} \\[3ex]
   
 \infer[\textsc{(E-Lambda)}]
-  {[\lambda x_j : \tau'.\ c_j]^{\tau \rightarrow \sigma}_{jl} \longrightarrow \lambda x_i : \tau.\ [\{[x_i]^{\tau'}_{irev(l)}/x_j\}c_j]^\sigma_{jl}}
+  {[\lambda x_j : \tau'.\ c_j]^{\tau \rightarrow \sigma}_{j} \longrightarrow \lambda x_i : \tau.\ [\{[x_i]^{\tau'}_{i}/x_j\}c_j]^\sigma_{jl}}
   {} \\[3ex]
 \end{array}
 \]
+}
+\caption{Operational Semantics for Expressions}
+\label{fig-op1}
+
+\end{figure}
+
+\begin{figure}[p]
+\footnotesize{
 
 $\fbox{$c \longrightarrow c'$}$
 \[
@@ -106,7 +187,7 @@ $\fbox{$c \longrightarrow c'$}$
   {e_i \longrightarrow e_i''}  \quad
   
 \infer[\textsc{(E-App2)}]
-  {v_i \ e_i' \longrightarrow v_i\ e_i'}
+  {v_i \ e_i \longrightarrow v_i\ e_i'}
   {e_i\longrightarrow e_i'}  \quad
   
 \infer[\textsc{(E-App3)}]
@@ -144,8 +225,13 @@ $\fbox{$c \longrightarrow c'$}$
   {\m{with} h_i \m{handle} op(v_; y_i.c_i) \longrightarrow \{v_i/x_i\} \{(\lambda y: \tau_B.
    \m{with} h_i\m{handle} c_i) / k\}c_i' }
   {op(x_i; k) \mapsto c_i' \in h_i & \Sigma(op) = \tau_A \rightarrow \tau_B} \\[3ex]
-  
+ 
+ 
 \infer[\textsc{(E-Handle4)}]
+  {\m{with} h_i \m{handle} op(v_i, y_i.c_i) \longrightarrow op(v_i; y_i. \m{with} h_i \m{handle} c_i))}
+  {op(x_i; k) \mapsto c_i' \not\in h_i } \\[3ex]
+  
+\infer[\textsc{(E-Handle5)}]
   {\m{with} h_i \m{handle} [op]^\varepsilon_l(v_i, y_i.c_i) \longrightarrow [op]^\varepsilon_l(v_i; y_i. \m{with} h_i \m{handle} c_i))}
   {\Delta_i(\varepsilon) = \varepsilon & op \not \in \varepsilon} \\[3ex]
   
@@ -164,7 +250,7 @@ $\fbox{$c \longrightarrow c'$}$
 { \Sigma(op) = \tau_A \rightarrow \tau_B} \\[3ex]
 
 \infer[\textsc{(E-Embed4)}]
-{[[op_k]^{\varepsilon'}_{l'}(v_j; y_j.c_j)]^{\{\varepsilon\}\tau}_l \longrightarrow [op_k]^\varepsilon_{l'l}([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_l)}
+{[[op_k]^{\varepsilon'}_{l}(v_j; y_j.c_j)]^{\{\varepsilon\}\tau}_j \longrightarrow [op_k]^\varepsilon_{lj}([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_j)}
 { \Sigma(op) = \tau_A \rightarrow \tau_B& \Delta_j(\varepsilon') = \varepsilon' & op \not \in \varepsilon'} \\[3ex]
 
 
@@ -173,11 +259,31 @@ $\fbox{$c \longrightarrow c'$}$
 \]
 
 }
-\caption{Operational Semantics}
+\caption{Operational Semantics for Computations}
+\label{fig-op2}
+
 \end{figure}
 
-\subsection{Static Semantics}
-\begin{figure}[H]
+The reduction rules for terms are dependent on the agent of the terms. Figure \ref{fig-op1} shows that operational semantics for expressions of agent i. (E-Congurence) shows that a j-expression embedded agent-i should be evaluated using the reductions rules for agent j first. The (E-Unit) and (E-Lambda) rules show that we can lift an embedded j-value to agent i, so the value becomes an i-value. The (E-Unit) rule simply lifts the unit value out of the embedding. The (E-Lambda) rule is more interesting: The value embedded is a lambda expression of agent j. We lift the argument out of the embedding. However, the type annotating the argument is changed from $\tau'$ to the exported argument type $\tau$, because the reduced expression should have the exported type $\tau \rightarrow \sigma$. The body of the reduced expression is an embedded j-computation, so the variable $x_i$ should be encapsulated by an embedding, because any i-term should be embedded in a j-term. We annotate $x_i$ with type $tau'$ because the original lambda function expects a value of type $tau'$. 
+
+Figure \ref{fig-op2} shows the reduction rules for i-computations. (E-Ret) is the congruence rule that evaluates the expression in return statement. (E-Op) evaluates the input argument for the operation call. Note that there are no reduction rules for operation calls because the semantics for operations are defined by the handler encapsulating it. 
+
+(E-EmbedOp1) evaluates the argument expression to an embedded operation. (E-EmbedOp2) refines the effect annotation of an operation. (E-EmbedOp3) lifts the operation out of an embedding when the annotation contains the operation, because the agent i has enough information about effect abstraction to handle the operation. Note that we require that the effect annotation cannot be further refined, in order to ensure determinism of evaluation. (E-EmbedOp4) removes an operation that is not $op$ out of the effect annotation, as this is helpful in our proof of type soundness.
+
+(E-App1), (E-App2) and (E-App3) are standard call-by-value semantics for applications. (E-Seq1) evaluates the first computation in a sequence of computations. (E-Seq2) binds the return value of the first computation to a variable in the second computation. (E-Seq3) witnesses an operation call as the first computation in a sequence. Since there is no way to further evaluate an operation right away, we propagate the operation call outwards and defer further evaluation to the continuation of the call. (E-Seq4) is similar to (E-Seq3), and requires that the effect annotation on the embedding to be most precise. 
+
+(E-Handle1) simply evaluates the computation encapsulated by the handler. In (E-Handle2), the computation returns a value, so we substitute the value into the computation of the clause that handles the return statement in the handler. (E-Handle3) shows that case when the handler $h_i$ has a matching clause for the operation $op$. We substitute the argument $v_i$ for $x_i$, and substitute the continuation of the operation for $k$. The continuation function receives an argument of type $\tau_B$, which is the result type of the operation $op$, and computes the continuation of the operation $c_i$, but encapsulating it with the handler $h_i$. The (E-Handle4) shows the case when the operation is not handled by the handler, so we propagate the operation outwards to wait for another handler to handle it. The (E-Handler5) ensures that abstracted effects are not handled: If the current agent cannot refine the effect annotation, then the operation is abstract and cannot be handled, and is therefore propagated outward. 
+
+(E-Embed1) is the congruence rule for embedded computations. (E-Embed2) lifts the return statement out of the embedding. We can safely remove the effect annotation $\varepsilon$ because the returned value $v_j$ cannot cause any effect. 
+
+(E-Embed3) lifts an operation call out of the embedding. We annotate the operation with the effect annotation of the whole computation. Since the argument value for $op$ is a j-value, we need to embed it as a i-value, and annotate it with type $\tau_A$. The continuation $c_j$ is still embedded, and we substitute the embedded variable $y_i$ for $y_j$, because $y_i$ should be an embedded i-value in a j-value.
+
+The (E-Embed4) rule is very similar to (E-Embed3) with one difference being that $op$ is already embedded. In this case, we override the annotation on $op$ with the annotation for the whole computation, and update the agent list in the subscript of the operation. We add $j$ to the agent list because the agent j have contributed to the effect annotation of the operation.
+
+\section{Static Semantics}
+\subsection{Typing Rules}
+
+\begin{figure}[t]
 \footnotesize{
 \noindent$\fbox{$\Gamma \vdash e_i : \tau$}$
 \[
@@ -208,7 +314,7 @@ $\fbox{$c \longrightarrow c'$}$
 
 \infer[\textsc{(T-ret)}]
   {\Gamma\vdash \m{return} e_i : \{\varepsilon\}\tau }
-  {\Gamma\vdash e_i : \tau} \quad 
+  {\Gamma\vdash e_i : \tau & \Delta_i(\varepsilon) = \varepsilon} \quad 
   
 \infer[\textsc{(T-op)}]
   {\Gamma\vdash op(e_i; y_i.c_i) : \{\varepsilon\}\tau }
@@ -250,7 +356,21 @@ $\fbox{$c \longrightarrow c'$}$
 \label{wrap-static}
 \end{figure}
 
+Figure \ref{wrap-static} shows the static semantics of the core-calculus. Static semantics contains typing rules for both expressions and computations. Note that the type rules depend on the agent each expression or computation belongs to. 
 
+The rule (T-Unit) assigns the unit type to a unit value. (T-Var) looks up a type of a variable from the context. (T-Lam) is the standard rule for typing a lambda function. Note that the body of a lambda is computation, so we need use the typing judgement for computation in the premise of this rule. (T-EmbedExp) assigns type to expression embeddings: The embedding has type $tau$ if the embedded expression $e_j$ is assigned to the type $\tau'$, and $tau$ is related to $tau'$ by the list $li$. We will elaborate on type relations later. 
+
+(T-Ret) assign a type to a return statement: As expected, the expression part of the computation type matches the type of the returned expression. However we can annotate the return statement with an arbitrary effect set, because our type system does not describe the precise effect in computations, but gives the upper bound of effect in computations.  
+
+(T-Op) shows the typing rule for operation calls. Again, since we allow effect annotations to be an unpper bound on effect, we can require the operation $op$ to be in the effect set $\varepsilon$.
+
+(T-Handle) shows the typing rule for the effect handling statement $\m{with} h_i \m{handle} c_i$. $c_i$ is a computation with effect type $\varepsilon$ and return type $\tau_A$. $h_i$ is a handler that contains clause that handler operations $op^1 , \dots ,op^n$. For the return clause, given the type of variable $x$ is $\tau_A$, the type of $c^r$ must be $\{\varepsilon'\}\tau_B$. For the clause handling the operation $op^i$, which has the operation type $\tau_i \rightarrow \tau_i'$,  if variable $x$ has type $\tau_i$, and continuation has the type $\tau_i' \rightarrow \{\varepsilon'\}\tau_B$, then the handling computation $c^i$ must have the type $\{\varepsilon'\}\tau_B$. The effect type after handling, $\varepsilon'$ should contain all of the effects that are not handled by the handler.
+
+(T-Embed) is very similar to (T-EmbedExp), where we use the type of the embedded computation and the type relation judgment to assign a type to the embedding. 
+
+(T-EmbedOp) first computes the type of $c_i$ given that $y_i$ has the correct type. It is required that the effect annotation on the embedding is a part of the effect of $c_i$. And $op$ should be related to the effect annotation using the type relations.
+
+\subsection{Type Relations}
 \begin{figure}[H]
 \footnotesize{
 \noindent$\fbox{$\tau \leq_l \tau'$}$
@@ -258,7 +378,7 @@ $\fbox{$c \longrightarrow c'$}$
 \begin{array}{c}
 
 \infer[\textsc{(R-unit)}]
-	{unit \leq_l unit}
+	{1 \leq_l 1}
 	{} \quad
 
 \infer[\textsc{(R-arrow)}]
@@ -294,13 +414,18 @@ $\fbox{$c \longrightarrow c'$}$
 \]
 }
 
-
 \caption{Type Relations}
 \label{wrap-static}
 \end{figure}
 
-\subsection{Safety}
+Type relations ensures the soundness of abstraction. The goal of type relations is to prohibit embeddings from exporting incorrect effect abstractions. For example, if a i-computation uses an effect operation $flip : 1 \rightarrow bool$, it should annotate the computation with effect $Nondet$ when exporting the computation, but should not  annotate it with the empty effect.
 
+The judgements for expression types are of the form $\tau \leq_l \tau$, where $l$ is a list of agents that provide the type abstraction information used by the relation. (R-Unit) shows that unit types relates to itself. (R-Arrow) relates two arrow types given that the input types and the output types are related,  To relate two computation types, we just need to ensure the effect types and return types are related. 
+
+The relation for effect types does the actual work. By (R-EFF1), two effect types are related under a single agent $i$ if the first effect is a subset of the second effect after refined by the type information provided by $i$. (R-EFF2) shows that by using type information from a list of agents, we can combine the chain of relation between effects.
+
+\section{Safety Properties}
+In this section we state and prove the standard type-safety theorems for the core calculus.
 \begin{lemma} (Substitution) \\
 If $\Gamma, x_j : \tau' \vdash c_i : \sigma$ and $\Gamma \vdash e_j : \tau'$, then $\Gamma \vdash \{e_j/x_j\}c_i : \sigma$
 \end{lemma}
@@ -308,11 +433,27 @@ If $\Gamma, x_j : \tau' \vdash c_i : \sigma$ and $\Gamma \vdash e_j : \tau'$, th
 \begin{lemma} 
 \label{lemma-exact}
 If $\Gamma \vdash c_i : \{\varepsilon\}\tau$ then $\overline{\Delta_i}(\varepsilon) = \varepsilon$
+\begin{proof}
+By induction on derivation of $\Gamma \vdash c : \sigma$. (T-Ret) has a premise the ensures the lemma is correct. For other rules, the result is immediate by applying IH.
+
+\end{proof}
+\end{lemma}
+
+\begin{lemma}
+\label{lemma-minus}
+If $\varepsilon \leq_l \varepsilon'$, then $\varepsilon \setminus op \leq_l \varepsilon' \setminus op$
+\begin{proof}
+By induction on $\varepsilon \leq_l \varepsilon$. The proof is straightforward.
+\end{proof}
+
 \end{lemma}
 
 \begin{lemma}
 \label{lemma-relation}
 If $op \leq_{l} \varepsilon$, then $op \leq_{l} \varepsilon \setminus op'$
+\begin{proof}
+By induction on the derivation of $\varepsilon \leq_l \varepsilon$. If (R-Eff1) is used, then the proof is straightforward because the subset relation on the premise still holds. If (R-Eff2) is used, by inversion on (R-Eff2), we have $op \leq_l \varepsilon'$ and $\varepsilon' \leq_{l'} \varepsilon$. By IH we have $op \leq_l \varepsilon' \setminus op'$. By lemma \ref{lemma-minus} we have $\varepsilon'  \setminus op' \leq_{l'} \varepsilon \setminus op'$. Then the result follows by (R-Eff2)
+\end{proof}
 \end{lemma}
 
 \begin{lemma} (Preservation) \\
@@ -399,7 +540,7 @@ $$
   {\Gamma\vdash \m{with} h_i \m{handle} c_i: \{\varepsilon'\} \tau_B}
   {\begin{gathered}
   h_i = \{\m{return} x \mapsto c^r, op^1(x;k) \mapsto c^1, \dots, op^n(x;k) \mapsto c^n \}\\
-  \Gamma, x: \tau_A \vdash c^r : \{\varepsilon'\}\tau_B \quad
+  \Gamma, x: \tau_A \vdash c^r : \{\varepsilon'\}\tau_B \quad \\
   \left\{ \Sigma(op^i) = \tau_i \rightarrow \tau_i'  \quad \Gamma, x:\tau_i, k:\tau_i' \rightarrow \{\varepsilon'\}\tau_B \vdash c^i: \{\varepsilon'\}\tau_B    \right\}_{1 \leq i \leq n} \\
   \Gamma \vdash c_i : \{\varepsilon''\}\tau_A \quad \varepsilon'' \setminus \{op^i\}_{1 \leq i \leq n} \subseteq \varepsilon'
   \end{gathered}}
@@ -557,7 +698,7 @@ If the reduction rule is E-Embed3, Then $c_1 = [op(v_1; y. k_1)]{\{\varepsilon\}
 \end{theorem}
 
 \pagebreak
-\subsection{Abstraction Problem I}
+\section{Abstraction Problem I}
 \begin{lstlisting}
 
 
@@ -687,5 +828,136 @@ b.handler(
   | return x -> return 0)]$^{ \{\} int}_b$
   
 \end{lstlisting}
+
+
+\section{Existential Type for Algebraic Effect}
+\label{sec-exist}
+In the previous sections, we have introduced the core calculus of abstract algebraic effects via embeddings. However it is  impractical for requiring programmers to explicitly annotate each program components with embeddings. So we present a top level language where the annotations are implicitly added during evaluation of the program.  
+
+According to \citet{mitchell88}, there is a correspondence between abstraction data types and existential types. Existential types are often used as a foundation for expressing type abstraction in module systems. The  calculus introduced in this section contains a form of existential type that provide abstraction mechanisms for algebraic effects. The this form of expression of existential type would generate new agents during evaluation of program and automatically separate program components with different knowledge, so programmers would not need to explicitly work with agents and embeddings.
+
+\subsection{Syntax}
+\begin{figure}
+\label{fig-syntax}
+\begin{align*}
+&(agents) &i, j &::= \{1 \dots n\}\\
+&(lists) & l &::= i \mid il\\
+&(expression\ types) &\tau &::= 1 \mid \tau \rightarrow \sigma \mid \exists f.\ \tau \\
+&(computation\ types) &\sigma &::= \{\varepsilon\}\tau\\
+&(effect\ types) &\varepsilon &::= \cdot \mid f, \varepsilon \mid op, \varepsilon\\
+&(i\ values) &{v_i} &::= ()_i \mid \lambda x_i:\tau.\ c_i \mid \m{pack} (\varepsilon, v) \m{as} \exists f.\ \tau\\
+&(i\ expression) &e_i &::= x_i \mid v_i \mid [e_j]^\tau_l \mid \m{pack} (\varepsilon, e) \m{as} \exists f.\ \tau  \mid \m{open} e \m{as} (f, x) \m{in} e'\\
+&(i\ computation) &c_i &::= \texttt{return}\ e_i \mid op(e_i, y.c_i) \mid \texttt{do}\ x \leftarrow c_i\ \texttt{in}\ c_i' \mid e_i\ e_i' \mid \texttt{with}\ h_i\ \texttt{handle}\ c_i\\
+ &\ &\mid\ &[c_j]^\sigma_l \mid [op]^\varepsilon_l (e_i, y_i.c_i)\\
+&(i\ handler) &h_i &::= \texttt{handler}\ \{\texttt{return}\ x_i \mapsto c^r_i, op^1(x_i^1, k^1) \mapsto c_i^1 \dots  op^n(x_i^n, k^n) \mapsto c_i^n\}  
+\end{align*}
+\caption{Syntax for Existential Effects}
+\end{figure}
+
+Most of the syntax remains the same for our new language. The existential type $\exists f.\ \tau$ is added as an expression type. The intuition of the type is that the value of this type isa value of type $\{\varepsilon/f\}\tau$ for some effect type $\varepsilon$. 
+
+There  are two new forms of expressions: The introduction form of the existential type, $\m{pack} (\varepsilon, e) \m{as} \exists f.\ tau$ and the elimination form, $\m{open} e \m{as} (f, x) \m{in} e'$. The $\m{pack}$ expression creates existential package that contains an effect type $\varepsilon$ and an expression $e$.  The $\m{open}$ expression opens up an existential package and substitute the expression in the package for the variable $x$.
+
+We only introduce one form of value: the existential package $\m{pack} (\varepsilon, v) \m{as} \exists f.\ \tau$ 
+
+
+\subsection{Dynamic Semantics}
+\begin{figure}[t]
+\footnotesize{
+\noindent$\fbox{$\langle \{\Delta\}, e \rangle \mapsto \langle \{\Delta\}, e \rangle$}$
+\[
+\begin{array}{c}
+
+\infer[\textsc{(E-pack)}]
+  {\langle \{\Delta\}, \m{pack} (\varepsilon, e) \m{as} \exists f.\ \tau  \rangle \mapsto \langle \{\Delta'\} , \m{pack} (\varepsilon, e') \m{as} \exists f.\ \tau  \rangle}
+  {\langle \{\Delta\}, e \rangle \mapsto \langle \{\Delta'\}, e' \rangle} \\[3ex]
+  
+\infer[\textsc{(E-open)}]
+   {\langle \{\Delta\},  \m{open} (\m{pack} (\varepsilon, e) \m{as} \exists f.\ \tau) \m{as} (f, x) \m{in} e'  \rangle \mapsto \langle \{\Delta'\}, \{[e]_j^\tau / x\}e' \rangle}
+  {f \m{fresh} & j \m{fresh} & \Delta'_j = \Delta_i[f \mapsto \varepsilon] & \forall \Delta_k \in \{\Delta\}, \Delta_k' = \Delta_k[f \mapsto f]} \\[3ex]
+  
+\infer[\textsc{(E-EmbedPack)}]
+  {\langle \{\Delta\}, [\m{pack} (\varepsilon, v) \m{as} \exists f.\ \tau]^{\exists f.\ \tau'}_j \rangle \mapsto \langle \{\Delta\}, \m{pack} (\varepsilon, [v]^{\{\varepsilon/f\}\tau'}_j) \m{as} \exists f.\ \tau' \rangle}
+  {}
+  
+\end{array}
+\]
+\label{static-exist}
+\caption{Additional Dynamic Semantics for Existential Type}
+}
+\end{figure}
+
+The semantics for existential type $\exists f.\ \tau$  hides the definition of the effect label $f$ from the client of the value of this type. We leverage the our previous design of multi-agent calculus to achieve information hiding. However, the previous design assumes that the type information for each agents are predetermined and does not change during evaluation. Since existential types generate new abstraction boundaries, we need a different semantics that allow agents to be created during evaluation. Therefore, we modify the reduction rule to evaluate a pair that contains both the expression to evaluate and a context of type information. The idea to keep track of type information while evaluating terms was used by \citet{grossman00} to encode parametric polymorphism in their system.
+
+We introduce the notation $\{\Delta\}$ to express a list of type maps for all agents in the context $\{\Delta_1, \dots \Delta_n\}$. The type information of each agents can change, and new agents can be generated, the evaluation judgment becomes $\langle \{\Delta\}, e \rangle \mapsto \langle \{\Delta\}, e \rangle$. 
+
+(E-Pack) shows the congruence rule for reduction of a pack expression. (E-Open) opens an existential package: This rule requires $f$ to be a fresh label, which achievable by doing alpha conversion in $e'$. $j$ is a fresh agent. A new type map for agent $j$ extends the type map for $i$ by mapping $f$ to $\varepsilon$. Every existing type map in $\{\Delta\}$ is extended by mapping $f$ to itself. Finally, $[e]^\tau_j$ is substituted for $x$ in $e'$.
+
+(E-EmbedPack) shows how the embedding interacts with existential packages. The existential package is lifted out of the embedding, and the value $v$ becomes an embedded j-value with type annotation $\{\varepsilon/f\}\tau'$.
+
+The reduction rules for remaining terms are not changed by the introduction of $\{\Delta\}$ and are therefore not shown. 
+
+\subsection{Static Semantics}
+\begin{figure}[t]
+\footnotesize{
+\noindent$\fbox{$\{\Delta\} \mid \Gamma  \vdash e_i : \tau$}$
+\[
+\begin{array}{c}
+
+\infer[\textsc{(T-pack)}]
+  {\{\Delta\}\mid \Gamma \vdash \m{pack} (\varepsilon, e) \m{as} \exists f.\ \tau : \exists f.\ \tau}
+  {\{\Delta\}\mid \Gamma \vdash e : \{\varepsilon / f\} \tau} \\[3ex]
+  
+\infer[\textsc{(T-open)}]
+  {\{\Delta\}\mid \Gamma \vdash \m{open} e \m{as} (f, x) \m{in} e' : \tau'}
+  {\{\Delta\}\mid \Gamma \vdash e : \exists f.\ \tau & \forall \Delta_i \in \{\Delta\}, \Delta'_i = \Delta_i[f\mapsto f] & \{\Delta'\}\mid \Gamma, x:\tau \vdash e' : \tau'}
+
+\end{array}
+\]
+\label{static-exist}
+\caption{Additional Static Semantics for Existential Effects}
+}
+\end{figure}
+
+The typing rules also requires the set of type maps, so the judgment have the form $\{\Delta\} \mid \Gamma \vdash e : \tau$
+(T-Pack) assigns the type $\exists f.\ \tau$ to the existential package if the expression $e$ has type $\{\varepsilon/f\}\tau$. The rule (T-Open) assigns the type $\tau'$ to the open expression if $e$ has the existential type $\exists f.\ \tau$ and $e'$ has type $\tau'$ given that the context is extended with variable $x$, and the set of type maps is extended with the effect label $f$. 
+
+
+
+
+
+\subsection{Type Relation}
+
+\subsection{Type Safety}
+\begin{lemma} (Preservation)\\
+If $\{\Delta\} \mid \Gamma \vdash e : \tau$ and $\langle \{\Delta\}, e\rangle \mapsto \langle \{\Delta'\}, e'\rangle$, then $\{\Delta'\} \mid \Gamma \vdash e' : \tau$
+\begin{proof}
+By rule induction on the dynamic semantics of expressions. 
+\begin{enumerate}
+\item (E-Congruence): By inversion on typing judgement and applying IH.
+\item (E-Unit): By directly applying (T-Unit)
+\item (E-Lambda): 
+$$\infer[\textsc{(E-Lambda)}]
+  {[\lambda x_j : \tau'.\ c_j]^{\tau \rightarrow \sigma}_{j} \longrightarrow \lambda x_i : \tau.\ [\{[x_i]^{\tau'}_{i}/x_j\}c_j]^\sigma_{jl}}
+  {}$$
+By inversion on (T-EmbedExp), we have $\{\Delta\} \mid \Gamma \vdash  [\lambda x_j : \tau'.\ c_j]^{\tau \rightarrow \sigma}_{j}: \tau \rightarrow \sigma$, and $\{\Delta\} \mid \Gamma \vdash \lambda x_j : \tau'.\ c_j : \tau' \rightarrow \sigma'$, where $\{\Delta\} \mid \Gamma \vdash \tau' \rightarrow \sigma' \leq_j \tau \rightarrow \sigma$. By inversion on (T-Lam), we have $\{\Delta\} \mid \Gamma, x_j : \tau' \vdash c_j : \sigma$. Then by substitution lemma, we have $\{\Delta\} \mid \Gamma, x_i : \tau  \vdash \{[x_i]^{\tau'}_i/x_j\}c_j : \sigma'$. By (T-Embed), 
+$\{\Delta\} \mid \Gamma, x_i : \tau  \vdash [\{[x_i]^{\tau'}_i/x_j\}c_j : \sigma']^{\sigma}_j : \sigma$. Then the result follows by (T-Lam).
+
+\item (E-Pack): By inversion and IH.
+\item (E-Open): By inversion on (T-Pack), we have $\{\Delta\} \mid \Gamma \vdash e : \{\varepsilon /f\} \tau$. Then by (T-EmbedExp), we have $\{\Delta'\} \mid \Gamma \vdash [e]^\tau_j : \tau$. By inversion on (T-Open), $\{\Delta\} \mid \Gamma, x : \tau \vdash e' : \tau'$. Since $j$ is fresh, $e'$ doesn't contain any $j$ term, so the type information from agent $j$ doesn't affect the typing of $e'$. Therefore, $\{\Delta'\} \mid \Gamma, x : \tau \vdash e' : \tau'$. Finally, by substitution lemma, we have $\{\Delta'\} \mid \Gamma \vdash \{[e]^\tau_j / x \}e' : \tau'$.
+
+\item (E-EmbedPack): By inversion on (T-EmbedExp), we have $\{\Delta\} \mid \Gamma \vdash \m{pack} (\varepsilon, v) \m{as} \exists f.\ \tau : \exists f.\ \tau$, and $\{\Delta\} \mid \Gamma \vdash \exists f.\ \tau \leq_j \exists f.\ \tau'$. By type relation, we have $\tau \leq_j \tau'$. Then by inversion on (T-Pack), we have $\{\Delta\} \mid \Gamma \vdash v :\{\varepsilon / f\}\tau$. Then by T-EmbedExp, we have $\{\Delta\}\mid\Gamma \vdash [v]^{\{\varepsilon / f\}\tau'}_j : \{\varepsilon / f\}\tau'$. Then by (T-Pack), we get $\{\Delta\}\mid\Gamma \vdash \m{pack} (\varepsilon, [v]^{\{\varepsilon / f\}\tau'}_j) \m{as} \exists f.\ \tau' :\exists f.\ \tau'$
+
+
+\end{enumerate}
+\end{proof}
+
+\end{lemma}
+
+\begin{lemma} (Progress)\\
+If $\{\Delta\} \mid \Gamma \vdash e : \tau$ then either $e$ is a value or there exists $e'$ and $\{\Delta'\}$ such that $\langle \{\Delta\}, e \rangle \mapsto \langle \{\Delta'\}, e' \rangle$
+\end{lemma}
+
+
 
 

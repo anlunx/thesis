@@ -44,7 +44,11 @@
     showspaces=false,                
     showstringspaces=false,
     showtabs=false,                  
-    tabsize=2
+    tabsize=2,
+ commentstyle=\color{mygreen},    % comment style
+  escapeinside={\%*}{*)},          % if you want to add LaTeX within your code
+  keywordstyle=\color{blue},       % keyword style
+  stringstyle=\color{mymauve}    % string literal style
 }
 
 \lstset{style=mystyle}
@@ -98,14 +102,14 @@
 \maketitle
 
 \begin{dedication}
-For my dog
+Dedication
 \end{dedication}
 
 \pagestyle{plain} % for toc, was empty
 
 
 \begin{abstract}
-Effect systems have been a subject of active research for nearly four decades, with the most notable practical example being checked exceptions in programming languages such as Java.  The work on effects can be divided into two strands: The \textit{restrictive} approach (e.g., Java's checked exceptions), which takes effects that are already built into the language--such as reading and writing state or exceptions--and provides a way to restrict them. And the \textit{denotational} approach, which includes algebraic effects, defines the semantics of computational effects based on primitives. While there are many existing restrictive or denotational effect system, they are rarely designed with scalability in mind. In this thesis, we design multiple effect systems around the idea of making effect system scalable when developing large and complex softwares. The first part of our work is a restrictive path-dependent effect system that provide a granular effect hierarchy by allowing abstract effect members to be bounded. We present a full formalization of the effect-system, and provide an implementation as a part of the Wyvern programming language. The second part of our work presents a denotational effect-system that supports abstract algebraic effects. We give a formalization of the system and provide proofs for type soundness and dynamic semantic correctness of abstract algebraic effects. 
+Effect systems have been a subject of active research for nearly four decades, with the most notable practical example being checked exceptions in programming languages such as Java.  The work on effects can be divided into two strands: The \textit{restrictive} approach (e.g., Java's checked exceptions), which takes effects that are already built into the language--such as reading and writing state or exceptions--and provides a way to restrict them. And the \textit{denotational} approach, which includes algebraic effects, defines the semantics of computational effects based on primitives. While there are many existing restrictive or denotational effect system, they are rarely designed with scalability in mind. In this thesis, we design multiple effect systems around the idea of making effect system scalable when developing large and complex softwares. The first part of our work is a restrictive path-dependent effect system that provide a granular effect hierarchy by allowing abstract effect members to be bounded. This thesis presents a full formalization of the effect-system, and provides an implementation as a part of the Wyvern programming language. The second part of our work presents a denotational effect-system that supports abstract algebraic effects. We give a formalization of the system and provide proofs for type soundness and dynamic semantic correctness of abstract algebraic effects. 
 \end{abstract}
 \begin{acknowledgments}
 \end{acknowledgments}
@@ -119,7 +123,7 @@ Effect systems have been a subject of active research for nearly four decades, w
 \mainmatter
 
 %% Double space document for easy review:
-\renewcommand{\baselinestretch}{1.66}\normalsize
+%\renewcommand{\baselinestretch}{1.66}\normalsize
 
 % The other requirements Catherine has:
 %
