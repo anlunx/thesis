@@ -458,8 +458,35 @@ Since we can make $y_i$ a fresh variable, we have $\Gamma,  y_i : \tau_B, x_j:\t
 Then by IH we have $\Gamma \vdash \{e_j/x_j\}e_i : \tau_A$ and $\Gamma,  y_i : \tau_B \vdash \{e_j/x_j\}c_i : \{\varepsilon\} \tau$.\\
 By (T-Op) we have $\Gamma \vdash op(\{e_j/x_j\}e_i; y_i.\{e_j/x_j\}c_i) : \{\varepsilon\}\tau$\\
 Therefore we have $\Gamma \vdash \{e_j/x_j\}(op(e_i; y_i.c_i)) : \{\varepsilon\}\tau$
+
+\item[(T-Seq)] 
+$$
+\infer[\textsc{(T-seq)}]
+  {\Gamma, x_j : \tau'' \vdash \m{do} x_i \leftarrow c_i \m{in} c_i' : \{\varepsilon\}\tau' }
+  {\Gamma, x_j : \tau'' \vdash c_i : \{\varepsilon\}\tau & \Gamma, x_j : \tau'', x_i:\tau \vdash c_i': \{\varepsilon\}\tau'} 
+  $$
+By IH, we have $\Gamma \vdash \{e_j/x_j\}c_i : \{\varepsilon\}\tau$\\
+Since we can choose $x_i$ as a fresh variable, we have $\Gamma, x_i : \tau, x_j : \tau'' \vdash c_i': \{\varepsilon\}\tau'$\\
+Then by IH we have  $\Gamma, x_i : \tau \vdash \{e_j/x_j\}c_i': \{\varepsilon\}\tau'$\\
+Then the result follows by (T-Seq)
+\item[(T-App)] Follows directly by applying IH.
+\item[(T-Handle)] 
+$$
+\infer[\textsc{(T-handle)}]
+  {\Gamma, x_j : \tau' \vdash \m{with} h_i \m{handle} c_i: \{\varepsilon'\} \tau_B}
+  {\begin{gathered}
+  h_i = \{\m{return} x \mapsto c^r, op^1(x;k) \mapsto c^1, \dots, op^n(x;k) \mapsto c^n \}\\
+  \Gamma, x_j : \tau' , x: \tau_A \vdash c^r : \{\varepsilon'\}\tau_B \\
+  \left\{ \Sigma(op^i) = \tau_i \rightarrow \tau_i'  \quad \Gamma, x_j : \tau', x:\tau_i, k:\tau_i' \rightarrow \{\varepsilon'\}\tau_B \vdash c^i: \{\varepsilon'\}\tau_B    \right\}_{1 \leq i \leq n} \\
+  \Gamma, x_j : \tau' \vdash c_i : \{\varepsilon\}\tau_A \quad \varepsilon \setminus \{op^i\}_{1 \leq i \leq n} \subseteq \varepsilon'
+  \end{gathered}}
+  $$
+    Then handling clauses bind variables $x$ and $k$ in the handling computation $c^i$, so we can make them fresh variables that do not appear in context $\Gamma$. Then we can apply IH to typing judgements in the premise.
+    
+\item[(T-Embed)] Follows by applying IH
+\item[(T-EmbedOp)] The proof is similar to  the case for (T-Op)
+
 \end{enumerate}
-\todo[inline]{Finish the rest of the proof}
 \end{proof}
 \end{lemma}
 
