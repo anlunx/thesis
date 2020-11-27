@@ -427,7 +427,28 @@ The relation for effect types does the actual work. By (R-EFF1), two effect type
 \section{Safety Properties}
 In this section we state and prove the standard type-safety theorems for the core calculus.
 \begin{lemma} (Substitution) \\
-If $\Gamma, x_j : \tau' \vdash c_i : \sigma$ and $\Gamma \vdash e_j : \tau'$, then $\Gamma \vdash \{e_j/x_j\}c_i : \sigma$
+If $\Gamma, x_j : \tau' \vdash c_i : \sigma$ and $\Gamma \vdash e_j : \tau'$, then $\Gamma \vdash \{e_j/x_j\}c_i : \sigma$, and\\\
+If $\Gamma, x_j : \tau' \vdash e_i : \tau $ and $\Gamma \vdash e_j : \tau'$, then $\Gamma \vdash \{e_j/x_j\}e_i : \tau$
+
+\begin{proof}
+By rule induction on $\Gamma \vdash e : \tau$ and $\Gamma \vdash c : \sigma$
+\begin{enumerate}
+\item[(T-Unit)] Trivial
+\item[(T-Var)] Trivial
+\item[(T-Lam)] 
+$$
+\infer[\textsc{(T-lam)}]
+  {\Gamma, x_j : \tau'  \vdash (\lambda x_i: \tau.\ c_i) : \tau \rightarrow \sigma}
+  {\Gamma,x_j : \tau',  x_i:\tau \vdash c_i : \sigma} 
+$$
+By IH, we have $\Gamma, x_i:\tau \vdash \{e_j/x_j\}c_i : \sigma$\\
+Then by (T-Lam) we have $\Gamma \vdash (\lambda x_i : \tau.\ \{e_j/x_j\}c_i) : \sigma$.\\
+Which is equivalent to $\Gamma \vdash \{e_j/x_j\}(\lambda x_i : \tau.\ c_i) : \sigma$.
+\item[(T-EmbedExp)] By inversion and IH
+\end{enumerate}
+
+\end{proof}
+
 \end{lemma}
 
 \begin{lemma} 
