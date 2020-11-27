@@ -56,15 +56,15 @@ As we can see, the abstraction of effect signatures from type abstractions, sinc
 &(computation\ types) &\sigma &::= \{\varepsilon\}\tau\\
 &(effect\ types) &\varepsilon &::= \cdot \mid f, \varepsilon \mid op, \varepsilon\\
 &(i\  values) &{v_i} &::= ()_i \mid \lambda x_i:\tau.\ c_i\\
-&(i\ expression) &e_i &::= x_i \mid v_i \mid [e_j]^\tau_l \\
+&(i\ expression) &e_i &::= x_i \mid v_i \mid [e_j]^\tau_j \\
 &(i\ computation) &c_i &::= \texttt{return}\ e_i \mid op(e_i, y.c_i) \mid \texttt{do}\ x \leftarrow c_i\ \texttt{in}\ c_i' \mid e_i\ e_i' \mid \texttt{with}\ h_i\ \texttt{handle}\ c_i\\
- &\ &\mid\ &[c_j]^\sigma_l \mid [op]^\varepsilon_l (e_i, y_i.c_i)\\
+ &\ &\mid\ &[c_j]^\sigma_j \mid [op]^\varepsilon_l (e_i, y_i.c_i)\\
 &(i\ handler) &h_i &::= \texttt{handler}\ \{\texttt{return}\ x_i \mapsto c^r_i, op^1(x_i^1, k^1) \mapsto c_i^1 \dots  op^n(x_i^n, k^n) \mapsto c_i^n\}  
 \end{align*}
 \caption{Syntax for multi-agent calculus}
 \end{figure}
 
-This section describes a variant of the simply typed lambda calculus that maintains a syntactic distinction between agents throughout evaluation. Figure \ref{fig-syntax} gives the syntax of our calculus. As our previous discussion, it is crucial to keep track of the effect abstraction information during the evaluation of the program. It is therefore natural to divide the code into agents, and allow each agent to export abstract effect signatures. We assume that there are $n$ agents, and use variables $i, j, k$ to range over the set of agents. 
+This section describes a variant of the simply typed lambda calculus that maintains a syntactic distinction between agents during evaluation. Figure \ref{fig-syntax} gives the syntax of our calculus. As our previous discussion, it is crucial to keep track of the effect abstraction information during the evaluation of the program. It is therefore natural to divide the code into agents, and allow each agent to export abstract effect signatures. We assume that there are $n$ agents, and use variables $i, j, k$ to range over the set of agents. 
 
 Every term in this language is assigned to an agent. And terms are split into inert expressions and potentially effectful computations, following an approach called \emph{fine-grain call-by-value}, introduced by \citet{levy03}. We use the notation \emph{i-expression} and \emph{i-computation} to denote expressions and computations in the agent i. We use subscripts to indicate a term is assigned to an agent, however, we will omit the subscript if the agent the term belongs to is not important or obvious in the context.
 
@@ -132,15 +132,15 @@ $\fbox{$e \longrightarrow e'$}$
 \[
 \begin{array}{c}
 \infer[\textsc{(E-Congruence)}]
-  {[e_j]^\tau_l \longrightarrow [e_j']^\tau_l}
+  {[e_j]^\tau_j \longrightarrow [e_j']^\tau_j}
   {e_j \mapsto e_j'} \quad 
 
 \infer[\textsc{(E-Unit)}]
-  {[()_j]^{unit}_l \longrightarrow ()_i}
+  {[()_j]^{1}_j \longrightarrow ()_i}
   {} \\[3ex]
   
 \infer[\textsc{(E-Lambda)}]
-  {[\lambda x_j : \tau'.\ c_j]^{\tau \rightarrow \sigma}_{j} \longrightarrow \lambda x_i : \tau.\ [\{[x_i]^{\tau'}_{i}/x_j\}c_j]^\sigma_{jl}}
+  {[\lambda x_j : \tau'.\ c_j]^{\tau \rightarrow \sigma}_{j} \longrightarrow \lambda x_i : \tau.\ [\{[x_i]^{\tau'}_{i}/x_j\}c_j]^\sigma_{j}}
   {} \\[3ex]
 \end{array}
 \]
@@ -246,7 +246,7 @@ $\fbox{$c \longrightarrow c'$}$
 {} \\[3ex]
 
 \infer[\textsc{(E-Embed3)}]
-{[op_j(v_j; y_j.c_j)]^{\{\varepsilon\}\tau}_l \longrightarrow [op_j]^\varepsilon_l([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_l)}
+{[op_j(v_j; y_j.c_j)]^{\{\varepsilon\}\tau}_j \longrightarrow [op_j]^\varepsilon_l([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_j)}
 { \Sigma(op) = \tau_A \rightarrow \tau_B} \\[3ex]
 
 \infer[\textsc{(E-Embed4)}]
@@ -302,8 +302,8 @@ The (E-Embed4) rule is very similar to (E-Embed3) with one difference being that
   {\Gamma, x_i:\tau \vdash c_i : \sigma} \\[3ex]
   
 \infer[\textsc{(T-EmbedExp)}]
-  {\Gamma \vdash [e_j]^\tau_l : \tau}
-  {\Gamma \vdash e_j : \tau' & \Gamma \vdash \tau' \leq_{li} \tau} \quad  
+  {\Gamma \vdash [e_j]^\tau_j : \tau}
+  {\Gamma \vdash e_j : \tau' & \Gamma \vdash \tau' \leq_{ji} \tau} \quad  
 \end{array} \\[3ex]
 \]
 
@@ -432,7 +432,7 @@ If $\Gamma, x_j : \tau' \vdash e_i : \tau $ and $\Gamma \vdash e_j : \tau'$, the
 
 \begin{proof}
 By rule induction on $\Gamma \vdash e : \tau$ and $\Gamma \vdash c : \sigma$
-\begin{enumerate}
+\begin{enumerate}[align=left]
 \item[(T-Unit)] Trivial
 \item[(T-Var)] Trivial
 \item[(T-Lam)] 
@@ -445,10 +445,22 @@ By IH, we have $\Gamma, x_i:\tau \vdash \{e_j/x_j\}c_i : \sigma$\\
 Then by (T-Lam) we have $\Gamma \vdash (\lambda x_i : \tau.\ \{e_j/x_j\}c_i) : \sigma$.\\
 Which is equivalent to $\Gamma \vdash \{e_j/x_j\}(\lambda x_i : \tau.\ c_i) : \sigma$.
 \item[(T-EmbedExp)] By inversion and IH
+\item[(T-Ret)] Follows by induction hypothesis
+\item[(T-Op)]  
+$$
+\infer[\textsc{(T-op)}]
+  {\Gamma\vdash op(e_i; y_i.c_i) : \{\varepsilon\}\tau }
+  {\Sigma(op) = \tau_A \rightarrow \tau_B & \Gamma \vdash e_i : \tau_A & \Gamma. y_i:\tau_B\vdash c_i: \{\varepsilon\}\tau & op \in \Delta_i(\varepsilon)} 
+$$
+
+By inversion we have $\Gamma, x_j : \tau' \vdash e_i : \tau_A$ and $\Gamma, x_j : \tau', y_i : \tau_B \vdash c_i : \{\varepsilon\} \tau$. \\
+Since we can make $y_i$ a fresh variable, we have $\Gamma,  y_i : \tau_B, x_j:\tau' \vdash c_i : \{\varepsilon\} \tau$.\\
+Then by IH we have $\Gamma \vdash \{e_j/x_j\}e_i : \tau_A$ and $\Gamma,  y_i : \tau_B \vdash \{e_j/x_j\}c_i : \{\varepsilon\} \tau$.\\
+By (T-Op) we have $\Gamma \vdash op(\{e_j/x_j\}e_i; y_i.\{e_j/x_j\}c_i) : \{\varepsilon\}\tau$\\
+Therefore we have $\Gamma \vdash \{e_j/x_j\}(op(e_i; y_i.c_i)) : \{\varepsilon\}\tau$
 \end{enumerate}
-
+\todo[inline]{Finish the rest of the proof}
 \end{proof}
-
 \end{lemma}
 
 \begin{lemma} 
@@ -477,7 +489,35 @@ By induction on the derivation of $\varepsilon \leq_l \varepsilon$. If (R-Eff1) 
 \end{proof}
 \end{lemma}
 
-\begin{lemma} (Preservation) \\
+\begin{lemma}
+\label{lemma-relation2}
+If $\tau \leq_l \tau'$ then $\tau' \leq_{rev(l)} \tau$
+\begin{proof}
+By induction on the type relation rules. The proof is simple arguments that follow directly from IH.  
+\end{proof}
+\end{lemma}
+
+\begin{lemma} (Preservation for expressions) \\
+For all agent $i$, If $\Gamma \vdash e_i : \tau$ and $e_i \mapsto e_i'$, then $\Gamma \vdash e_i' : \tau$.
+\begin{proof}
+By induction on derivation of $e_i \mapsto e_i'$
+\begin{enumerate}[align=left]
+\item[(E-Congruence)] By inversion on the typing rule for embedded expressions, we have $\Gamma \vdash e_j : \tau'$. By IH, we have $\Gamma \vdash e_j' : \tau'$. Then we use (E-Contruence) to derive $\Gamma \vdash [e_j']^\tau_j : \tau$
+
+\item[(E-Unit)] Follows immediately from  (T-Unit)
+\item[(E-Lambda)] By inversion on (T-Embed), we have $\Gamma \vdash \lambda x_j:\tau'.\ c_j : \tau' \rightarrow \sigma'$, where $\tau' \rightarrow \sigma' \leq_{ji} \tau \rightarrow \sigma$.\\
+By inversion on (R-Arrow), we have $\tau' \leq_{ji} \tau$ and $\sigma' \leq_{ji} \sigma$\\
+By inversion on (T-Lambda), we have $\Gamma, x_j : \tau' \vdash c_j : \sigma'$. And since $x_i$ is a fresh variable in $c_j$, we have $\Gamma, x_i : \tau, x_j : \tau' \vdash c_j : \sigma'$\\
+By lemma \ref{lemma-relation2}, we have $\tau \leq_{ij} \tau'$, and therefore $\Gamma, x_i : \tau \vdash [x_i]^{\tau'}_i : \tau'$\\
+Then we can use the substitution lemma to derive $\Gamma, x_i : \tau \vdash \{[x_i]^{\tau'}_i / x_j\}c_j : \sigma'$.\\
+Then by (T-Embed), we have $\Gamma, x_i : \tau \vdash [  \{[x_i]^{\tau'}_i / x_j\}c_j ]^\sigma_j : \sigma$\\
+Then the result follows by (T-Lambda).
+
+\end{enumerate}
+\end{proof}
+\end{lemma}
+
+\begin{lemma} (Preservation for computations) \\
 If $\Gamma \vdash c_i : \{\varepsilon\} \tau$ and $c_i \longrightarrow c_i'$, then $\Gamma \vdash c_i' : \{\varepsilon\}\tau$
 
 \begin{proof} (Sketch)
@@ -720,6 +760,7 @@ If the reduction rule is E-Embed3, Then $c_1 = [op(v_1; y. k_1)]{\{\varepsilon\}
 
 \pagebreak
 \section{Abstraction Problem I}
+\todo[inline]{make the example readable}
 \begin{lstlisting}
 
 
@@ -950,7 +991,7 @@ The typing rules also requires the set of type maps, so the judgment have the fo
 \subsection{Type Relation}
 
 \subsection{Type Safety}
-\begin{lemma} (Preservation)\\
+\begin{lemma} (Preservation for expression)\\
 If $\{\Delta\} \mid \Gamma \vdash e : \tau$ and $\langle \{\Delta\}, e\rangle \mapsto \langle \{\Delta'\}, e'\rangle$, then $\{\Delta'\} \mid \Gamma \vdash e' : \tau$
 \begin{proof}
 By rule induction on the dynamic semantics of expressions. 
