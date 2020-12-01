@@ -1049,6 +1049,64 @@ If $\{\Delta\} \mid \Gamma \vdash e : \tau$ then either $e$ is a value or there 
 \todo[inline]{TODO: Proof}
 \end{lemma}
 
+\section{Programming with Abstract Effects}
+In section \ref{sec-state}, we defined a resource type \m{Var} that provides two public functions, \m{get} and \m{set}, that are annotated with effects, but the concrete implementation that causes the effects are not revealed to the client. This construct ensures that any program that accesses to a value of type \m{Var} is annotated with the correct effect. Therefore we can see that, in a restrictive effect system, it is useful to be able to hide the implementation of a computational effect.  
+
+In this section we will show that this form of implementation hiding is also important for building a modular software with algebraic effects and handlers through an example of mutable state. Mutable state as an algebraic effects is often represented by a \m{state} effect with two operations \m{get} and \m{set}. In this example we assume that our mutable state can store or access a int.
+\begin{lstlisting}
+operation get : Unit -> Int
+operation set : Int -> Unit
+\end{lstlisting}
+
+The handler of a state effect is usually defined in the following way:
+\begin{lstlisting}[mathescape=true]
+handler hstate = {
+  return x -> $\lambda$_:Int. return x
+  get(_; k) -> $\lambda$s:Int. (k s) s
+  set(s; k) -> $\lambda$_:Int. (k ()) s
+}
+\end{lstlisting}
+This handler would transform the handled computation into a lambda expression that receives a state as an argument. In the return clause, the argument is ignored. In the clause handling \m{get},  the state argument is passed into the continuation $k$. Since the continuation $k\ s$ is already transformed into a function that expects a state, we pass $s$ to the computation $k\ s$. The clause for the \m{set} operation is similar except that we ignore the state argument, but pass the argument obtained from the \m{set} operation. 
+
+Now we consider the module of a single variable introduced in section \ref{sec-state}, where read and write to the variable cannot bypass the effect checking because the implementation details are hidden by the interface \m{Var}. If we would write a similar module in our core calculus, it is natural to extend our calculus with record type and universal types, and implement the module as following:
+\begin{lstlisting}[mathescape=true]
+val var = 
+  < read $\hookrightarrow$ $\lambda$x:Unit. get((); y.return y),
+    write $\hookrightarrow$ $\lambda$x:Int. set(x; y.return ()),
+    handle $\hookrightarrow$  $\lambda$c: Unit $\rightarrow$ Int. (with hstate handle c ()) 0 >
+\end{lstlisting}
+
+The module provides functions \m{read}, \m{write}, and a handler function \m{handle} that determines the semantics for operations in functions \m{read} and \m{write}. However, this encoding of the module \m{var} does not enforce that the operations \m{get} and \m{set} are always handled by the handle function. In fact, any client that calls function \m{read} and \m{write} can write its own handler to handle the effects. So in order to tackle with this issue, we use the existential type introduced in section \ref{sec-exist} to define the module:
+\begin{lstlisting}[mathescape=true]
+val var = 
+  pack 
+  <{get, set}, 
+    < read $\hookrightarrow$ $\lambda$x:Unit. get((); y.return y),
+      write $\hookrightarrow$ $\lambda$x:Int. set(x; y.return ()),
+      handle $\hookrightarrow$  $\lambda$c: Unit $\rightarrow$ Int. (with hstate handle c ()) 0 >
+  > as $\exists$state. (read : Unit -> {state} Int) * (write : Int -> {state} Unit) * (handle :  Unit -> {state} Int -> {} Int)
+\end{lstlisting}
+This encoding of module defines an abstract effect \m{state} on top of the effects \m{get} and \m{set}, and export the module as an existential type that hides the definition of effect \m{state}, therefore enforcing that the client of this module can only handle effect \m{state} by calling the \m{handle} function. 
+
+The embedding design presented in section \ref{sec-core} helps to ensure that the abstraction does not break. Imagine a client of module \m{var} that calls \m{read} and handles it by calling \m{handle}. 
+
+\begin{lstlisting}[mathescape=true]
+open var as (state, v) in (v.handle v.read)
+\end{lstlisting}
+
+In this example, the \m{state} effect in function \m{read} is correctly handled by the handler \m{handle}, and the result of the computation is 0. Note that the abstraction barrier is still preserved if some handler attempts to handle the abstracted effect. For example, let handler \m{hget} be a handler that handles effect \m{get}. And the client code uses \m{hget} to handle the effect in method \m{read}. 
+
+\begin{lstlisting}[mathescape=true]
+handler hget = {
+  return x -> x
+  get (x; k) -> 1
+}
+open var as (state, v) in 
+  (v.handle ($\lambda$ x: Unit. with hget handle v.read ()))
+\end{lstlisting}
+
+Assume that the open expression is an i-expression. When opening the module \m{var}, we assign the opened expression \m{v} to a new agent j that  that knows the definition of the \m{state} effect. Because the \m{hget} handler is evaluating in the agent i, it would not be able to handle the effect \m{state} of the function \m{v.read}. Instead, the \m{state} effect will be handled by the handler provided by the module \m{var}, therefore ensuring that the abstraction information is not leaked.
+
 
 
 
