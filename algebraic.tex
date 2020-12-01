@@ -1,6 +1,7 @@
 % !TEX root = thesis.tex
 
 \chapter{Abstract Algebraic Effects Via Embedding}
+\label{chapter-algebraic}
 
 \section{Background and Motivation}
 
@@ -1073,7 +1074,7 @@ Now we consider the module of a single variable introduced in section \ref{sec-s
 val var = 
   < read $\hookrightarrow$ $\lambda$x:Unit. get((); y.return y),
     write $\hookrightarrow$ $\lambda$x:Int. set(x; y.return ()),
-    handle $\hookrightarrow$  $\lambda$c: Unit $\rightarrow$ Int. (with hstate handle c ()) 0 >
+    handle $\hookrightarrow$  $\lambda$c: Unit $\rightarrow$ {state} Int. (with hstate handle c ()) 0 >
 \end{lstlisting}
 
 The module provides functions \m{read}, \m{write}, and a handler function \m{handle} that determines the semantics for operations in functions \m{read} and \m{write}. However, this encoding of the module \m{var} does not enforce that the operations \m{get} and \m{set} are always handled by the handle function. In fact, any client that calls function \m{read} and \m{write} can write its own handler to handle the effects. So in order to tackle with this issue, we use the existential type introduced in section \ref{sec-exist} to define the module:
@@ -1083,7 +1084,7 @@ val var =
   <{get, set}, 
     < read $\hookrightarrow$ $\lambda$x:Unit. get((); y.return y),
       write $\hookrightarrow$ $\lambda$x:Int. set(x; y.return ()),
-      handle $\hookrightarrow$  $\lambda$c: Unit $\rightarrow$ Int. (with hstate handle c ()) 0 >
+      handle $\hookrightarrow$  $\lambda$c: Unit $\rightarrow$ {state} Int. (with hstate handle c ()) 0 >
   > as $\exists$state. (read : Unit -> {state} Int) * (write : Int -> {state} Unit) * (handle :  Unit -> {state} Int -> {} Int)
 \end{lstlisting}
 This encoding of module defines an abstract effect \m{state} on top of the effects \m{get} and \m{set}, and export the module as an existential type that hides the definition of effect \m{state}, therefore enforcing that the client of this module can only handle effect \m{state} by calling the \m{handle} function. 
@@ -1105,8 +1106,70 @@ open var as (state, v) in
   (v.handle ($\lambda$ x: Unit. with hget handle v.read ()))
 \end{lstlisting}
 
-Assume that the open expression is an i-expression. When opening the module \m{var}, we assign the opened expression \m{v} to a new agent j that  that knows the definition of the \m{state} effect. Because the \m{hget} handler is evaluating in the agent i, it would not be able to handle the effect \m{state} of the function \m{v.read}. Instead, the \m{state} effect will be handled by the handler provided by the module \m{var}, therefore ensuring that the abstraction information is not leaked.
+Assume that the open expression is an i-expression. When opening the module \m{var}, we assign the opened expression \m{v} to a new agent j that  knows the definition of the \m{state} effect. Because the \m{hget} handler is evaluating in the agent i, it would not be able to handle the effect \m{state} of the function \m{v.read}. Instead, the \m{state} effect will be handled by the handler provided by the module \m{var}, therefore ensuring that the abstraction information is not leaked.
 
 
+\section{Future Work}
+
+\subsection{Parametric Polymorphism}
+
+We introduced polymorphic effects in chapter \ref{chapter-bound} as a part of our restrictive effect system. However, we did not include  polymorphism in our agent-based core calculus. Parametric polymorphism on effects would significantly increase the expressiveness of the language. For example, in the example of the \m{var} module presented in the previous section, the type of the argument to the \m{handle} function is \m{Unit -> \{state\} Int}. So it restricts the handled computation to only have the \m{state} effect, and is therefore unrealistic as we may want to handle computations with other effects as well. 
+\begin{lstlisting}[mathescape=true]
+val var = 
+  pack 
+  <{get, set}, 
+    < read $\hookrightarrow$ $\lambda$x:Unit. get((); y.return y),
+      write $\hookrightarrow$ $\lambda$x:Int. set(x; y.return ()),
+      handle $\hookrightarrow$  $\lambda$c: Unit $\rightarrow$ {state} Int. (with hstate handle c ()) 0 >
+  > as $\exists$state. (read : Unit -> {state} Int) * (write : Int -> {state} Unit) * (handle :  Unit -> {state} Int -> {} Int)
+\end{lstlisting} 
+
+Therefore we would desire to add universal quantifications for effect variables to the system. However, unlike existential quantification, which is a straightforward extension to our calculus, the universal effect introduces a problem that breaks the abstraction barrier. The following example illustrates the problem brought by parametric polymorphism on effects:
+
+\begin{lstlisting}
+type B
+  effect E {
+  	def op() : Unit
+  }
+
+module b : B
+  ...
+
+type A
+  effect E 
+  def handle[F](c: Unit -> {F, this.E} Unit): {F} Unit
+  def m(): {this.E} Unit
+  
+module a: A
+  effect E = {b.E}
+  def handle[F](c: Unit -> {F, this.E} Unit): {F} Unit
+     handle
+       c()
+     with
+       b.op() -> resume ()
+  def m(): {this.E} Unit
+     b.op()
+  \end{lstlisting}
+
+The module \m{a} defines a polymorphic handle function that handles a computation with effect \m{a.E} and a polymorphic effect \m{F}. Since effect \m{a.E} is defined abstract in the type \m{A}, the client of this module should not observe that fact that effect \m{a.E} is equivalent to \m{b.E}. However, the client1 passes effect \m{b.E} as the polymorphic effect into the handle function, and because the implementation of  handle function handles the effect \m{b.E}, client1 would surprised by the fact that the effect \m{b.E} is handled. In comparison, the client2 code passes an unrelated effect \m{c.E} to the handling function, and observes that the operation of effect \m{c.E} is not handled.
+
+\begin{lstlisting}
+//Client1: Prints nothing
+handle 
+  a.handle[b.E] (
+     () => b.op(); a.m()
+  )
+with
+    b.op() -> print "desired output"
+
+//Client2: Prints "desired output"
+handle 
+  a.handle[c.E] (
+     () => c.op(); a.m()
+  )
+with
+    c.op() -> print "desired output"
+    
+\end{lstlisting}
 
 
