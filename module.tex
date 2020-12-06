@@ -1,8 +1,7 @@
 % !TEX root = thesis.tex
 
 \chapter{Algebraic Effects with Module Systems}
-
-\section{Programming with Abstract Effects}
+\section{Motivation}
 In section \ref{sec-state}, we defined a resource type \m{Var} that provides two public functions, \m{get} and \m{set}, that are annotated with effects, but the concrete implementation that causes the effects are not revealed to the client. This construct ensures that any program that accesses to a value of type \m{Var} is annotated with the correct effect. Therefore we can see that, in a restrictive effect system, it is useful to be able to hide the implementation of a computational effect.  
 
 In this section we will show that this form of implementation hiding is also important for building a modular software with algebraic effects and handlers through an example of mutable state. Mutable state as an algebraic effects is often represented by a \m{state} effect with two operations \m{get} and \m{set}. In this example we assume that our mutable state can store or access a int.
@@ -61,75 +60,78 @@ open var as (state, v) in
 Assume that the open expression is an i-expression. When opening the module \m{var}, we assign the opened expression \m{v} to a new agent j that  knows the definition of the \m{state} effect. Because the \m{hget} handler is evaluating in the agent i, it would not be able to handle the effect \m{state} of the function \m{v.read}. Instead, the \m{state} effect will be handled by the handler provided by the module \m{var}, therefore ensuring that the abstraction information is not leaked.
 
 
-\section{Future Work}
 
-\subsection{Parametric Polymorphism}
+\section{Encoding Abstract Effects Using Algebraic Effects}
+Our discussion of abstraction of algebraic effects has been focusing exclusively on purely functional programming, however, as shown in \citet{melicher20}, the expressiveness provided by abstract effects enables programmers to develop secure programs when side-effects are in play. In this section, we show that the effect system in this chapter provides a foundation for expressing abstract effect in chapter \ref{chapter-bound}. 
 
-We introduced polymorphic effects in chapter \ref{chapter-bound} as a part of our restrictive effect system. However, we did not include  polymorphism in our agent-based core calculus. Parametric polymorphism on effects would significantly increase the expressiveness of the language. For example, in the example of the \m{var} module presented in the previous section, the type of the argument to the \m{handle} function is \m{Unit -> \{state\} Int}. So it restricts the handled computation to only have the \m{state} effect, and is therefore unrealistic as we may want to handle computations with other effects as well. 
-\begin{lstlisting}[mathescape=true]
-val var = 
-  pack 
-  <{get, set}, 
-    < read $\hookrightarrow$ $\lambda$x:Unit. get((); y.return y),
-      write $\hookrightarrow$ $\lambda$x:Int. set(x; y.return ()),
-      handle $\hookrightarrow$  $\lambda$c: Unit $\rightarrow$ {state} Int. (with hstate handle c ()) 0 >
-  > as $\exists$state. (read : Unit -> {state} Int) * (write : Int -> {state} Unit) * (handle :  Unit -> {state} Int -> {} Int)
-\end{lstlisting} 
+ \citet{melicher20} and chapter \ref{chapter-bound} presented an effect member mechanism to support effect abstraction: the ability to define higher-level effects in terms of lower-level effects, to hide that definition from clients of an abstraction, and to reveal partial information about an abstract effect through effect bounds. In this chapter we no longer use the object-oriented formalization but use the agent-based lambda calculus introduced in chapter \ref{chapter-algebraic} and extend it with the existential types as a foundation to support effect abstraction. Now we will look at different aspects of the original abstract effect system and discuss how we can incorporate them in the new setting with algebraic effects.
+ 
+ 
+\subsection{Running Example}
+We begin by encoding the running example presented in \citet{melicher20} which demonstrate the key feature of the abstract effects. The original example shows a type and a module implementing the logging facility in the text-editor application, and is shown in figure \ref{fig-logging}. 
 
-Therefore we would desire to add universal quantifications for effect variables to the system. However, unlike existential quantification, which is a straightforward extension to our calculus, the universal effect introduces a problem that breaks the abstraction barrier. The following example illustrates the problem brought by parametric polymorphism on effects:
-
+\begin{figure}
+\label{fig-logging}
 \begin{lstlisting}
-type B
-  effect E {
-  	def op() : Unit
-  }
+resource type Logger
+  effect ReadLog
+  effect UpdateLog
+  effect readLog(): {this.ReadLog} String
+  effect updateLog(newEntry: String): {this.UpdateLog} Unit
 
-module b : B
-  ...
-
-type A
-  effect E 
-  def handle[F](c: Unit -> {F, this.E} Unit): {F} Unit
-  def m(): {this.E} Unit
+module def logger(f: File): Logger
+  effect ReadLog = {f.Read}
+  effect updateLog = {f.Append}
+  def readLog(): {ReadLog} String = f.read()
+  def updateLog(newEntry: String): {UpdateLog} Unit = f.append(newEntry)
   
-module a: A
-  effect E = {b.E}
-  def handle[F](c: Unit -> {F, this.E} Unit): {F} Unit
-     handle
-       c()
-     with
-       b.op() -> resume ()
-  def m(): {this.E} Unit
-     b.op()
-  \end{lstlisting}
+resource type File
+  effect Read
+  effect Write
+  effect Append
+  ...
+  def read(): {this.Read} String
+  def write(s: String): {this.Write} Unit
+  def append(s: String): {this.Append} Unit
+  ...
+\end{lstlisting}
 
-The module \m{a} defines a polymorphic handle function that handles a computation with effect \m{a.E} and a polymorphic effect \m{F}. Since effect \m{a.E} is defined abstract in the type \m{A}, the client of this module should not observe that fact that effect \m{a.E} is equivalent to \m{b.E}. However, the client1 passes effect \m{b.E} as the polymorphic effect into the handle function, and because the implementation of  handle function handles the effect \m{b.E}, client1 would surprised by the fact that the effect \m{b.E} is handled. In comparison, the client2 code passes an unrelated effect \m{c.E} to the handling function, and observes that the operation of effect \m{c.E} is not handled.
+\caption{The logging facility in the text-editor application}
+\end{figure}
 
-\begin{lstlisting}
-//Client1: Prints nothing
-handle 
-  a.handle[b.E] (
-     () => b.op(); a.m()
-  )
-with
-    b.op() -> print "desired output"
+Consider the code in Fig.~\ref{fig-logging} that shows a type and a module implementing the logging facility of the text-editor application.  In the given implementation of the \li{Logger} type, the \li{logger} module accesses the log file.\footnote{The keyword \li{resource} in the type definition indicates that the implementations of this type may have state and may access system resources; this is orthogonal to effect checking.} All modules of type \li{Logger} must have two methods: the \li{readLog} method that returns the content of the log file and the \li{updateLog} method that appends new entries to the log file. In addition, the \li{Logger} type declares two \textit{abstract} effects, \li{ReadLog} and \li{UpdateLog}, that are produced by the corresponding methods. These effects are abstract because they are not given a definition in the \li{Logger} type, and so it is up to the module implementing the \li{Logger} type to define what they mean. The effect names are user-defined, allowing the choice of meaningful names. 
 
-//Client2: Prints "desired output"
-handle 
-  a.handle[c.E] (
-     () => c.op(); a.m()
-  )
-with
-    c.op() -> print "desired output"
-    
+The \li{logger} module implements the \li{Logger} type. To access the file system, an object of type \li{File} (shown in Fig.~\ref{f-file}) is passed into \li{logger} as a parameter. The \li{logger} module's effect declarations are those of the \li{Logger} type, except now they are \textit{concrete}, i.e., they have specific definitions. The \li{ReadLog} effect of the \li{logger} module is defined to be the \li{Read} effect of the \li{File} object, and accordingly, the \li{readLog} method, which produces the \li{ReadLog} effect, calls \li{f}'s \li{read} method. Similarly, the \li{UpdateLog} effect of the \li{logger} module is defined to be \li{f.Append}, and accordingly, the \li{updateLog} method, which produces the \li{UpdateLog} effect, calls \li{f}'s \li{append} method. In general, effects in a module or object definition must always be concrete, whereas effects in a type definition may be either abstract or concrete.
+
+Using the existential type, the type \li{Logger} can be translated to the following type, note that we only translate one abstract effect \li{ReadLog} and one method \li{readLog} to make the code more readable. We assume that the type String is built into the language.
+\begin{lstlisting}[mathescape=true]
+type Logger = $\exists$ReadLog. $\langle$ readLog : Unit $\rightarrow$ {ReadLog} String $\rangle$
+\end{lstlisting}
+
+Similarly, the \li{File} type can be implemented as follows. Again we leave only one abstract effect and one member function to maintain simplicity of the example.
+\begin{lstlisting}[mathescape=true]
+type File = $\exists$Read. $\langle$ read : Unit $\rightarrow$ {Read} String $\rangle$
+\end{lstlisting}
+
+Then we are finally able to encode the functor \li{logger}, which receives a value of type \li{File} and returns a \li{Logger}. 
+
+\begin{lstlisting}[mathescape=true]
+logger = $\lambda$f:File. open f as (fRead, fBody) in 
+  pack (fRead, $\langle$readLog $\hookrightarrow$ $\lambda$x: Unit. fBody.read ()$\rangle$) as
+    $\exists$ReadLog. $\langle$readLog : Unit $\rightarrow$ {ReadLog} String$\rangle$
 \end{lstlisting}
 
 
-\section{Existential Type for Algebraic Effect}
+
+
+
+\section{Formalization}
 \label{sec-exist}
 In the previous sections, we have introduced the core calculus of abstract algebraic effects via embeddings. However it is  impractical for requiring programmers to explicitly annotate each program components with embeddings. So we present a top level language where the annotations are implicitly added during evaluation of the program.  
 
 According to \citet{mitchell88}, there is a correspondence between abstraction data types and existential types. Existential types are often used as a foundation for expressing type abstraction in module systems. The  calculus introduced in this section contains a form of existential type that provide abstraction mechanisms for algebraic effects. The this form of expression of existential type would generate new agents during evaluation of program and automatically separate program components with different knowledge, so programmers would not need to explicitly work with agents and embeddings.
+
+
 
 \subsection{Syntax}
 \begin{figure}
@@ -254,7 +256,86 @@ If $\{\Delta\} \mid \Gamma \vdash e : \tau$ then either $e$ is a value or there 
 \todo[inline]{TODO: Proof}
 \end{lemma}
 
+\section{Future Work}
 
+\subsection{Parametric Polymorphism}
+
+We introduced polymorphic effects in chapter \ref{chapter-bound} as a part of our restrictive effect system. However, we did not include  polymorphism in our agent-based core calculus. Parametric polymorphism on effects would significantly increase the expressiveness of the language. For example, in the example of the \m{var} module presented in the previous section, the type of the argument to the \m{handle} function is \m{Unit -> \{state\} Int}. So it restricts the handled computation to only have the \m{state} effect, and is therefore unrealistic as we may want to handle computations with other effects as well. 
+\begin{lstlisting}[mathescape=true]
+val var = 
+  pack 
+  <{get, set}, 
+    < read $\hookrightarrow$ $\lambda$x:Unit. get((); y.return y),
+      write $\hookrightarrow$ $\lambda$x:Int. set(x; y.return ()),
+      handle $\hookrightarrow$  $\lambda$c: Unit $\rightarrow$ {state} Int. (with hstate handle c ()) 0 >
+  > as $\exists$state. (read : Unit -> {state} Int) * (write : Int -> {state} Unit) * (handle :  Unit -> {state} Int -> {} Int)
+\end{lstlisting} 
+
+Therefore we would desire to add universal quantifications for effect variables to the system. However, unlike existential quantification, which is a straightforward extension to our calculus, the universal effect introduces a problem that breaks the abstraction barrier. The following example illustrates the problem brought by parametric polymorphism on effects:
+
+\begin{lstlisting}
+type B
+  effect E {
+  	def op() : Unit
+  }
+
+module b : B
+  ...
+
+type A
+  effect E 
+  def handle[F](c: Unit -> {F, this.E} Unit): {F} Unit
+  def m(): {this.E} Unit
+  
+module a: A
+  effect E = {b.E}
+  def handle[F](c: Unit -> {F, this.E} Unit): {F} Unit
+     handle
+       c()
+     with
+       b.op() -> resume ()
+  def m(): {this.E} Unit
+     b.op()
+  \end{lstlisting}
+
+The module \m{a} defines a polymorphic handle function that handles a computation with effect \m{a.E} and a polymorphic effect \m{F}. Since effect \m{a.E} is defined abstract in the type \m{A}, the client of this module should not observe that fact that effect \m{a.E} is equivalent to \m{b.E}. However, the client1 passes effect \m{b.E} as the polymorphic effect into the handle function, and because the implementation of  handle function handles the effect \m{b.E}, client1 would surprised by the fact that the effect \m{b.E} is handled. In comparison, the client2 code passes an unrelated effect \m{c.E} to the handling function, and observes that the operation of effect \m{c.E} is not handled.
+
+\begin{lstlisting}
+//Client1: Prints nothing
+handle 
+  a.handle[b.E] (
+     () => b.op(); a.m()
+  )
+with
+    b.op() -> print "desired output"
+
+//Client2: Prints "desired output"
+handle 
+  a.handle[c.E] (
+     () => c.op(); a.m()
+  )
+with
+    c.op() -> print "desired output"
+    
+\end{lstlisting}
+
+
+\subsection{Effect Bounds}
+\subsection{Path-Dependency}
+
+
+
+
+
+
+
+
+
+
+
+
+
+\begin{comment}
 \section{Wyvern with Algebraic Effects hand Handlers}
 \todo[inline]{Finish this section}
 
@@ -312,9 +393,9 @@ There are two forms of declarations. The method declaration $m(x:\tau) = c$, and
 \begin{array}{c}
 
 \infer[\textsc{(E-New)}]
-	{\langle \{\Delta\}\mid \mu \mid \keyw{new}(x \Rightarrow \overline{d}) \mapsto \langle \{\Delta'\}\mid \mu, l \mapsto \{ [l/x] \overline{d} \} \mid l\rangle }
+	{\langle \{\Delta\}\mid \mu \mid \keyw{new}(x \Rightarrow \overline{d}) \mapsto \langle \{\Delta'\}\mid \mu, l \mapsto \{ x \Rightarrow \overline{d} \} \mid l\rangle }
 	{l\ fresh & \forall \keyw{effect}\ E = \varepsilon \in \overline{d} 
-	& \forall \Delta_k \in \{\Delta\} & \Delta_k' = \Delta_k[l.E \mapsto \varepsilon] } \\[3ex]
+	& \forall \Delta_k \in \{\Delta\} & \Delta_k' = \Delta_k[l.E \mapsto [l/x]\varepsilon] } \\[3ex]
 	
 \infer[\textsc{(E-EmbedExp1)}]
 	{\langle \{\Delta\} \mid \mu \mid [e]^\tau_j \rangle \mapsto    \langle \{\Delta'\} \mid \mu' \mid [e']^\tau_j \rangle}
@@ -328,15 +409,16 @@ There are two forms of declarations. The method declaration $m(x:\tau) = c$, and
 	  \rho_i = m : \tau' \rightarrow \sigma  \qquad
 	  m(y:\tau'') = c \in \overline{d} \qquad
 	  d'_i = (m(z : \tau') = [\{[z]^{\tau''}_i/y\}c]^\sigma_j )) \\
+	  (\forall \keyw{effect} E = \varepsilon \in \overline{d} \qquad d_i' = \keyw{effect} E = \varepsilon)\\
 	  (\forall \keyw{effect}\ E  = \varepsilon \in \overline{d} \qquad  \forall \Delta_k \in \{\Delta\} 
 	  \qquad \Delta_k' = \Delta_k[l'.E \mapsto l.E])
 	  \end{gathered} } \\[3ex]
 \infer[\textsc{(E-Coercion1)}]
-	{\langle \{\Delta\} \mid \mu \mid e : \tau \rangle \mapsto \langle \{\Delta'\} \mid \mu' \mid e' : \tau \rangle}
+	{\langle \{\Delta\} \mid \mu \mid e \rhd \tau \rangle \mapsto \langle \{\Delta'\} \mid \mu' \mid e' \rhd \tau \rangle}
 	{\langle \{\Delta\} \mid \mu \mid e  \rangle \mapsto \langle \{\Delta'\} \mid \mu' \mid e'  \rangle} \\[3ex]
 
 \infer[\textsc{(E-Coercion2)}]
-	{\langle \{\Delta\} \mid \mu \mid l : \tau \rangle \mapsto \langle \{\Delta'\} \mid \mu' \mid [l]^\tau_j \rangle}
+	{\langle \{\Delta\} \mid \mu \mid l \rhd \tau \rangle \mapsto \langle \{\Delta'\} \mid \mu' \mid [l]^\tau_j \rangle}
 	{j\ fresh & (\forall \keyw{effect} E \in \tau & ( \forall \Delta_k \in \{\Delta\} & \Delta_k(l.E) = l.E) & \Delta_j(l.E) = \varepsilon) }
 \end{array}
 \]
@@ -359,12 +441,12 @@ There are two forms of declarations. The method declaration $m(x:\tau) = c$, and
   {} \\[3ex]
   
 \infer[\textsc{(T-loc)}]
-  {\{\Delta\}\mid \mu, l \mapsto \{\overline{d}\} \mid \Gamma \vdash l : \tau}
-  {\{\Delta\}\mid \mu \mid \Gamma \vdash \{\overline{d}\} : \tau}\\[3ex]
+  {\{\Delta\}\mid \mu, l \mapsto \{x \Rightarrow \overline{d}\} \mid \Gamma \vdash l : \{x \Rightarrow \overline{\rho}\}}
+  {\forall i &  \{\Delta\}\mid \mu \mid \Gamma, x : \{x \Rightarrow \overline{\rho}\}  \vdash d_i : \rho_i} \\[3ex]
 
 \infer[\textsc{(T-new)}] 
-	{\{\Delta\}\mid \mu \mid \Gamma \vdash  \keyw{new}(\overline{d}) : \overline{\rho}}
-	{\{\Delta\}\mid \mu \mid \Gamma \vdash d_i : \rho_i}\\[3ex]
+	{\{\Delta\}\mid \mu \mid \Gamma \vdash  \keyw{new}(x \Rightarrow \overline{d}) : \{ x \Rightarrow \overline{\rho}\}}
+	{\{\Delta\}\mid \mu \mid \Gamma, x : \{x \Rightarrow \overline{\rho}\} \vdash d_i : \rho_i}\\[3ex]
 
 \infer[\textsc{(T-EmbedExp)}] 
 	{\{\Delta\}\mid \mu \mid \Gamma \vdash [e]^\tau_j : \tau}
@@ -422,18 +504,17 @@ There are two forms of declarations. The method declaration $m(x:\tau) = c$, and
 \begin{lemma} (Preservation for expressions)
 If $\{\Delta\}\mid \mu \mid \Gamma \vdash e : \tau$ and $\langle \{\Delta\} \mid \mu \mid e \rangle \mapsto  langle \{\Delta'\} \mid \mu' \mid e' \rangle$, then $\{\Delta'\}\mid \mu' \mid \Gamma \vdash e' : \tau$
 
-\begin{comment}
 \begin{proof} (Sketch)
 By induction on the reduction rule:
 \begin{enumerate}
 \item (E-New) The object initialization is transformed to a location $l$. According to the typing rule. The type of the location should be identical to the type of the object.
 \item (E-EmbedExp1) Follows immediately by applying IH
-\item (E-EmbedExp2) 
+\item (E-EmbedExp2)  By inversion on (T-EmbedExp), we have $\{\Delta\} \mid \mu \mid \Gamma \vdash [l]^\tau_j : \tau$. 
 \end{enumerate}
 \end{proof}
-\end{comment}
 
 \end{lemma}
+\end{comment}
 
 
 
