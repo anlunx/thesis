@@ -81,7 +81,7 @@ resource type Logger
 
 module def logger(f: File): Logger
   effect ReadLog = {f.Read}
-  effect updateLog = {f.Append}
+  effect UpdateLog = {f.Append}
   def readLog(): {ReadLog} String = f.read()
   def updateLog(newEntry: String): {UpdateLog} Unit = f.append(newEntry)
   
@@ -281,7 +281,7 @@ If $\{\Delta\} \mid \Gamma \vdash e : \tau$ then either $e$ is a value or there 
 \todo[inline]{TODO: Proof}
 \end{lemma}
 
-\section{Future Work}
+\section{Discussion and Future Work}
 
 \subsection{Parametric Polymorphism}
 
@@ -346,8 +346,11 @@ with
 
 
 \subsection{Effect Bounds}
-\subsection{Path-Dependency}
+As we have shown in chapter \ref{chapter-bound}, effect bounds are a useful tool for making the effect system expressive. Currently our calculus does not support bounded quantification because its formalization is different from the path-dependent formalization we previously developed to express effect bounds. 
 
+One possible direction to achieve this is through the use of bounded existential types. Because we use existential types to express information hiding on effect types, it is natural to adopt the technique of bounded existential types to achieve the idea of effect bounds. One difficulty of such adoption may be the way to unify subeffecting with our multi-agent approach.
+\subsection{Path-Dependency}
+Whil
 
 
 
