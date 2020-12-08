@@ -90,6 +90,7 @@ Effect abstraction has several concrete benefits. First, it can be used to disti
 
 
 \subsection{Effect Aggregation}
+\label{sec:effect-aggregation}
 
 Wyvern's effect-system design allows reducing the effect-annotation overhead by aggregating several effects into one. For example, if, to update the log file, the \li{logger} module needed to first read the file and then write it back, the \li{UpdateLog} effect would consist of two effects: a file read and a file write. In other effect systems, this change may make effects more verbose since all the methods that call the \li{updateLog} method would need to be annotated with the two effects. However, effect aggregation allows us to define the \li{UpdateLog} effect to be the two effects and then use \li{UpdateLog} to annotate the \li{updateLog} method and all methods that call it:
 

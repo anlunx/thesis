@@ -4,6 +4,7 @@
 \label{chapter-algebraic}
 
 \section{Background and Motivation}
+\label{sec-motivation}
 
 Algebraic effects (introduced by \citet{plotkin02}) and handlers (introduced by \citet{plotkin09}) are an approach to computational effects based on a premise that impure behavior arises from a set of operations, and are recently gaining popularity due to its ability to model various form of computational effects such as exceptions, mutable states, async-await, etc.
 
@@ -32,13 +33,12 @@ module m: M
     flip()
   def handle(c: Unit -> {this.E} Bool) : {} Bool = 
     handle c() with
-    | flip() -> return true
+    | flip() -> resume true
 
 m.handle(
   () => handle m.mflip() with
-          | flip() ->  return false
+          | flip() ->  resume false
  )
-
 \end{lstlisting}
 
 The last segment of the above example shows an client code of module \li{m} that calls the method \li{m.handle} and pass in an expression that encapsulate the call to \li{m.mflip} by another handler that handles the \li{flip} operation. Since the effect of the method \li{m.mflip} is abstract, the inner handler should not handle the operation inside \li{m.mflip}. Instead, the operation should be handled by the outer handler method \li{m.hanlde}. However, 
@@ -788,11 +788,9 @@ If the reduction rule is E-Embed3, Then $c_1 = [op(v_1; y. k_1)]{\{\varepsilon\}
 \end{theorem}
 
 \pagebreak
-\section{Abstraction Problem I}
-\todo[inline]{TODO: make the example readable}
-\begin{lstlisting}
-
-
+\section{Translation of the Abstraction Problem}
+In this section we show an example of the process of evaluation of the example program presented in \ref{sec-motivation}. The original example could be rewritten  as follows:
+\begin{lstlisting}[mathescape = true]
 op : 1 -> 1
   
 module b: B
@@ -803,14 +801,19 @@ module b: B
     handle c () with
     |  op () -> 1
     | return _ -> 0
+\end{lstlisting}
 
-// Example program
+The operation \li{op} is defined globally, and the module \li{b} defines effect \li{f} to be equivalent to \li{op},  an effectful method \li{m}, and an handler method \li{method}. The example program that we will evaluate is written as follows. The handler method from module \li{b} is invoked, and the argument is a computation that calls the method \li{b.m}, which is surrounded by a handler that handles \li{op}. 
+\begin{lstlisting}[mathescape = true]
 b.handler(
   () => handle b.m() with
           | op -> resume ()
           | return _ -> ()
  )
+ \end{lstlisting}
+ Then we rewrite the example program in our agent-based calculus: Since the code is a client of \li{b}, any method call from the module \li{b} should be surrounded by an embedding.  So the handler functions is wrapped in an embedding with type annotation \li{(1 -> \{f\} -> 1) -> Int}, and the handled function in the argument is also embedded with an annotation \li{1 -> \{f\} 1}. In the following evaluation process we assume that there is an agent \li{b} that represents the module \li{b}, and an agent \li{a} that represents the client code that invokes functions from module \li{b}
 
+\begin{lstlisting}[mathescape = true]
 // Translation of Example Program
 [$\lambda$c: 1 -> {f} 1. 
   handle c() with 
@@ -820,8 +823,10 @@ b.handler(
   handle [$\lambda$_:1. op()]$^{1 \rightarrow \{f\} 1}_b$ () with
   | op(x, k) -> k ()
   | return _ -> return ())
-  
-\\steps--->
+ \end{lstlisting}
+ 
+ Then according to the dynamic rules, we evaluate the handler function to a value that is not embedded. The program is therefore evaluated to 
+ \begin{lstlisting}[mathescape = true]
  ($\lambda$c: 1 -> {f} 1. 
   [handle [c]$^{1 \rightarrow \{f\} 1}_a$  () with 
   | op(x, k) -> return 1
@@ -830,8 +835,10 @@ b.handler(
   handle [$\lambda$_:1. op()]$^{1 \rightarrow \{f\} 1}_b$ () with
   | op(x, k) -> k ()
   | return _ -> return ())
-  
-\\steps--->
+  \end{lstlisting}
+ 
+Since the function is evaluated to a value, we can perform a $\beta$-reduction:
+ \begin{lstlisting}[mathescape = true]
   [handle 
      [$\lambda$_:1. 
       handle [$\lambda$_:1. op()]$^{1 \rightarrow \{f\} 1}_b$ () with
@@ -840,8 +847,10 @@ b.handler(
   with 
   | op(x, k) -> return 1
   | return x -> return 0)]$^{ \{\} int}_b$
+ \end{lstlisting}
  
- \\steps--->
+ Now we need to evaluate the outter-most handle computation in the embedding. The first step is to evaluate the handled computation, which is a function application. We first evaluate the function
+  \begin{lstlisting}[mathescape = true]
 [handle 
      $\lambda$_:1. 
       [handle [$\lambda$_:1. op()]$^{1 \rightarrow \{f\} 1}_b$ () with
@@ -850,8 +859,9 @@ b.handler(
   with 
   | op(x, k) -> return 1
   | return x -> return 0)]$^{ \{\} int}_b$
-  
-\\steps--->
+ \end{lstlisting}
+ Then we pass in the argument, which is a unit value
+  \begin{lstlisting}[mathescape = true]
 [handle 
       [handle [$\lambda$_:1. op()]$^{1 \rightarrow \{f\} 1}_b$ () with
       | op(x, k) -> k ()
@@ -859,36 +869,38 @@ b.handler(
   with 
   | op(x, k) -> return 1
   | return x -> return 0)]$^{ \{\} int}_b$
-  
+\end{lstlisting}  
+Then we evaluate the inner handling computation. Since the inner handling computation is evaluated as a client code and the operation \li{op} in an embedding from module \li{b}, the operation will not be handled by the current handler. Instead, it would be lifted out of the handler.
 
-\\steps--->
-[handle 
-      [handle $\lambda$_:1. [op()]$^{\{f\} 1}_b$ () with
-      | op(x, k) -> k ()
-      | return _ -> return () ]$^{\{f\} 1}_a$ 
-  with 
-  | op(x, k) -> return 1
-  | return x -> return 0)]$^{ \{\} int}_b$
+%  \begin{lstlisting}[mathescape = true]
+%[handle 
+%      [handle $\lambda$_:1. [op()]$^{\{f\} 1}_b$ () with
+%      | op(x, k) -> k ()
+%      | return _ -> return () ]$^{\{f\} 1}_a$ 
+%  with 
+ % | op(x, k) -> return 1
+  %| return x -> return 0)]$^{ \{\} int}_b$
   
-\\steps--->
-[handle 
-      [handle [op()]$^{\{f\} 1}_b$ with
-      | op(x, k) -> k ()
-      | return _ -> return () ]$^{\{f\} 1}_a$ 
-  with 
-  | op(x, k) -> return 1
-  | return x -> return 0)]$^{ \{\} int}_b$
+%\\steps--->
+%[handle 
+ %     [handle [op()]$^{\{f\} 1}_b$ with
+  %    | op(x, k) -> k ()
+  %    | return _ -> return () ]$^{\{f\} 1}_a$ 
+ % with 
+ % | op(x, k) -> return 1
+  %| return x -> return 0)]$^{ \{\} int}_b$
   
-\\steps--->
-[handle 
-      [handle op$^f_b$((), y.return y) with
-      | op(x, k) -> k ()
-      | return _ -> return () ]$^{\{f\} 1}_a$ 
-  with 
-  | op(x, k) -> return 1
-  | return x -> return 0)]$^{ \{\} int}_b$
-  
-\\steps--->
+%\\steps--->
+%[handle 
+%     [handle op$^f_b$((), y.return y) with
+ %     | op(x, k) -> k ()
+ %     | return _ -> return () ]$^{\{f\} 1}_a$ 
+ % with 
+ % | op(x, k) -> return 1
+ % | return x -> return 0)]$^{ \{\} int}_b$
+ % \end{lstlisting}
+
+  \begin{lstlisting}[mathescape = true]
 [handle 
       [op$^f_b$((), y. handle return y with
                        | op(x, k) -> k ()
@@ -897,26 +909,17 @@ b.handler(
   with 
   | op(x, k) -> return 1
   | return x -> return 0)]$^{ \{\} int}_b$
+  \end{lstlisting}
   
-\\steps--->
-[handle 
+At this point since the operation \li{op} is lifted to the agent b, where the effect $f$ is transparent, the handler would be able to handle it. The result of this computation is \li{return 1}, because the continuation is discarded by the handler.
+  \begin{lstlisting}[mathescape = true]
+  [handle 
       op$^f_{ba}$((), y. [handle return y with
                        | op(x, k) -> k ()
                        | return _ -> return ()]$^{\{f\} 1}_a$ 
           )
   with 
   | op(x, k) -> return 1
-  | return x -> return 0)]$^{ \{\} int}_b$
-  
-\\steps--->
-[handle 
-      op((), y. [handle return y with
-                       | op(x, k) -> k ()
-                       | return _ -> return ()]$^{\{f\} 1}_a$ 
-          )
-  with 
-  | op(x, k) -> return 1
-  | return x -> return 0)]$^{ \{\} int}_b$
-  
+  | return x -> return 0)]$^{ \{\} int}_b$   
 \end{lstlisting}
 

@@ -121,6 +121,31 @@ logger = $\lambda$f:File. open f as (fRead, fBody) in
     $\exists$ReadLog. $\langle$readLog : Unit $\rightarrow$ {ReadLog} String$\rangle$
 \end{lstlisting}
 
+\subsection{Effect Abstraction}
+
+In section  \ref{sec:effect-abstraction},  we defined effect abstraction as the ability to define higher-level effects in terms of lower-level effects and potentially to hide that definition from clients of an abstraction. In the \li{logger} module above, we lifted the low-level file resource into a higher-level logging facility, and defined higher-level effects \li{ReadLog} as an abstraction of the lower-level effect \li{Read}. So application code can reason in terms of effects of higher-level resources when appropriate.
+
+
+
+\subsection{Effect Aggregation}
+In section \ref{sec:effect-aggregation} we argued that effect aggregation can make the effect system less verbose. The original example declares an effect \li{UpdateLog} as the sum of two effects \li{f.Read} and \li{f.Write}. 
+\begin{lstlisting}[xleftmargin=-5pt, numbers=none]
+module def logger(f: File): Logger
+effect UpdateLog = {f.Read, f.Write}
+def updateLog(newEntry: String): {this.UpdateLog} Unit
+...
+\end{lstlisting}
+Although our new calculus is inherently more verbose than the calculus based on path-dependent effects, it can still encode effect aggregation. First we let the \li{File} type contains two abstract effects by existential quantification:
+\begin{lstlisting}[mathescape=true]
+type File = $\exists$ Read. $\exists$ Write. $\dots$
+\end{lstlisting}
+Then we can define logger functor. We first open the module \li{f}, then define an existential package where the abstract effect is defined as a sum of the two effects from the module \li{f}:
+\begin{lstlisting}[mathescape=true]
+logger = $\lambda$ f : File. open f as (fRead, x) in open x as (fWrite, y) in 
+  pack ({fRead, fWrite}, $\langle$updateLog$\hookrightarrow \dots \rangle$) as 
+    ($\exists$UpdateLog. $\langle$updateLog: String$\rightarrow${UpdateLog} Unit$\rangle$)
+\end{lstlisting}
+
 
 
 
