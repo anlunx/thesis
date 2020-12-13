@@ -2,7 +2,7 @@
 
 \chapter{Algebraic Effects with Module Systems}
 \section{Motivation}
-In section \ref{sec-state}, we defined a resource type \m{Var} that provides two public functions, \m{get} and \m{set}, that are annotated with effects, but the concrete implementation that causes the effects are not revealed to the client. This construct ensures that any program that accesses to a value of type \m{Var} is annotated with the correct effect. Therefore we can see that, in a restrictive effect system, it is useful to be able to hide the implementation of a computational effect.  
+In section \ref{sec-state}, we defined a resource type \m{Var} that provides two public functions, \m{get} and \m{set}, that are annotated with effects, but the concrete implementation that causes effects are not revealed to the client. This construct ensures that any program that accesses to a value of type \m{Var} is annotated with the correct effect. Therefore we can see that, in a restrictive effect system, it is useful to be able to hide the implementation of a computational effect.  
 
 In this section we will show that this form of implementation hiding is also important for building a modular software with algebraic effects and handlers through an example of mutable state. Mutable state as an algebraic effects is often represented by a \m{state} effect with two operations \m{get} and \m{set}. In this example we assume that our mutable state can store or access a int.
 \begin{lstlisting}
@@ -176,7 +176,7 @@ According to \citet{mitchell88}, there is a correspondence between abstraction d
 \caption{Syntax for Existential Effects}
 \end{figure}
 
-Most of the syntax remains the same for our new language. The existential type $\exists f.\ \tau$ is added as an expression type. The intuition of the type is that the value of this type isa value of type $\{\varepsilon/f\}\tau$ for some effect type $\varepsilon$. 
+Most of the syntax remains the same for our new language. The existential type $\exists f.\ \tau$ is added as an expression type. The intuition of the type is that the value of this type is a value of type $\{\varepsilon/f\}\tau$ for some effect type $\varepsilon$. 
 
 There  are two new forms of expressions: The introduction form of the existential type, $\m{pack} (\varepsilon, e) \m{as} \exists f.\ tau$ and the elimination form, $\m{open} e \m{as} (f, x) \m{in} e'$. The $\m{pack}$ expression creates existential package that contains an effect type $\varepsilon$ and an expression $e$.  The $\m{open}$ expression opens up an existential package and substitute the expression in the package for the variable $x$.
 
@@ -249,6 +249,7 @@ The typing rules also requires the set of type maps, so the judgment have the fo
 
 
 \subsection{Type Relation}
+
 
 \subsection{Type Safety}
 \begin{lemma} (Preservation for expression)\\
@@ -349,8 +350,6 @@ with
 As we have shown in chapter \ref{chapter-bound}, effect bounds are a useful tool for making the effect system expressive. Currently our calculus does not support bounded quantification because its formalization is different from the path-dependent formalization we previously developed to express effect bounds. 
 
 One possible direction to achieve this is through the use of bounded existential types. Because we use existential types to express information hiding on effect types, it is natural to adopt the technique of bounded existential types to achieve the idea of effect bounds. One difficulty of such adoption may be the way to unify subeffecting with our multi-agent approach.
-\subsection{Path-Dependency}
-Whil
 
 
 
