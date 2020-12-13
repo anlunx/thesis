@@ -1,0 +1,642 @@
+% !TEX root = thesis.tex
+\pagebreak
+
+\appendix
+
+\section{Proof of Theorem \ref{theorem-transitivity} (Transitivity of Subtyping)}
+
+\begin{lemma}
+If $\Gamma, x : \tau \vdash \varepsilon_1 <: \varepsilon_2$, and $\Gamma \vdash \tau' <: \tau$, then $\Gamma, x : \tau' \vdash \varepsilon_1 <: \varepsilon_2$.
+\begin{proof}
+The proof is by structural induction on the rule to derive $\Gamma, x : \tau \vdash \varepsilon_1 <: \varepsilon_2$. \begin{enumerate}
+\item Subeffect-Subset\\
+Since the premise doesn't rely on the context. This case is trivially true.
+\item Subeffect-Upperbound\\
+If the type of $n$ is not changed, then we can apply the same rule to to derive $\Gamma, x : \tau' \vdash \varepsilon_1 \cup \{n.g\}<: \varepsilon_2$. If the type of $n$ is replaced by $\tau'$, then we have $\keyw{effect}\ g \leqslant$ $\varepsilon' \in \sigma$, where $\Gamma, n: \tau' \vdash \varepsilon' <: \varepsilon$. By IH, we have $\Gamma, n : \tau' \vdash [n/y]\varepsilon \cup \varepsilon_1 <: \varepsilon_2$. By transitivity of subeffecting, we have $\Gamma, n : \tau' \vdash [n/y]\varepsilon' \cup \varepsilon_1 <: \varepsilon_2$. Then we can apply Subeffect-Upperbound again to derive $\Gamma, x : \tau' \vdash \varepsilon_1 \cup \{n.g\}<: \varepsilon_2$.
+\item Subeffect-Lowerbound\\ This case is similar to Subeffect-Upperbound
+\item Subeffect-Def-1\\ Since the declaration type $\keyw{effect} g = \{\varepsilon\}$ is not changed, the result follows directly by induction hypothesis.
+\item Subeffect-Def-2\\ Since the declaration type $\keyw{effect} g = \{\varepsilon\}$ is not changed, the result follows directly by induction hypothesis.
+\end{enumerate}
+\end{proof}
+\label{lemma-context-effect}
+\end{lemma}
+
+\begin{lemma}
+If $\Gamma, x:\tau \vdash \tau_1 <: \tau_2$, and $\Gamma \vdash \tau' <: \tau$, then $\Gamma, x:\tau' \vdash \tau_1 <: \tau_2$\\
+If $\Gamma, x:\tau \vdash \sigma_1 <: \sigma_2$, and $\Gamma \vdash \tau' <: \tau$, then $\Gamma, x:\tau' \vdash \sigma_1 <: \sigma_1$
+
+\begin{proof}
+We induct on the number of S-Alg used to derive the typing judgment in the premise of the statement.
+\begin{itemize}
+\item[BC] S-Alg is not used, so we have $\Gamma, x:\tau \vdash \sigma_1 <: \sigma_2$ derived by S-Refl2 or one of the S-Effect rules. The proof is trivial if we apply lemma \ref{lemma-context-effect}.
+\item[IS1] Assume we used S-Alg n times to derive $\Gamma, x:\tau \vdash \{ y \Rightarrow \sigma_i^{i\in1\dots m}\} <: \Gamma \vdash \{y \Rightarrow {\sigma'}_i^{i\in1\dots n}\}$. Then for each subtyping judgments in the premise of S-Alg, we can apply induction hypothesis to derive $\Gamma,~x:\tau',~y : \{ y \Rightarrow {\sigma}_i^{i \in 1..m} \} \vdash \sigma_{p(i)}<: \sigma_i'$. Then by applying S-Alg, we have $\Gamma, x:\tau' \vdash \{ y \Rightarrow \sigma_i^{i\in1\dots m}\} <: \Gamma \vdash \{y \Rightarrow {\sigma'}_i^{i\in1\dots n}\}$
+\item[IS2] Assume we used S-Alg n times to derive $\Gamma, y:\tau \vdash \keyw{def} m(x : \tau_1) : \{ \varepsilon_1 \}~\tau_2 <: \keyw{def} m(x : \tau_1') : \{ \varepsilon_2 \}~\tau_2'$, by inversion on S-Def, we have $\Gamma, y:\tau \vdash \tau_1' <: \tau_1$, $\Gamma, y:\tau \vdash \tau_2 <: \tau_2'$, and $\Gamma, y:\tau, x:\tau_1 \vdash \varepsilon_1 <: \varepsilon_2$. Then by induction hypothesis and lemma \ref{lemma-context-effect}, we have $\Gamma, y:\tau' \vdash \tau_1' <: \tau_1$, $\Gamma, y:\tau' \vdash \tau_2 <: \tau_2'$, and $\Gamma, y:\tau', x:\tau_1 \vdash \varepsilon_1 <: \varepsilon_2$. Then we use S-Def to derive $  \Gamma, y:\tau' \vdash \keyw{def} m(x : \tau_1) : \{ \varepsilon_1 \}~\tau_2 <: \keyw{def} m(x : \tau_1') : \{ \varepsilon_2 \}~\tau_2'$
+\end{itemize}
+\end{proof}
+\label{lemma-context-type}
+\end{lemma}
+
+
+
+\subsubsection{Proof of theorem \ref{theorem-transitivity}}
+If $\Gamma \vdash \tau_1 <: \tau_2$ and $\Gamma \vdash \tau_2 <: \tau_3$, then $\Gamma \vdash \tau_1 <: \tau_3$. \\
+If $\Gamma \vdash \sigma_1 <: \sigma_2$ and $\Gamma \vdash \sigma_2 <: \sigma_3$, then $\Gamma \vdash \sigma_1 <: \sigma_3$. 
+\begin{proof}
+We induct on the the number of S-Alg used to derive the two judgments in the premise of the first statement: $\Gamma \vdash \tau_1 <: \tau_2$ and $\Gamma \vdash \tau_2 <: \tau_3$, or the two judgments in the premise of the second statement: $\Gamma \vdash \sigma_1 <: \sigma_2$ and $\Gamma \vdash \sigma_2 <: \sigma_3$.
+\begin{itemize}
+\item[BC] The S-Alg is not used, so we have $\Gamma \vdash \sigma_1 <: \sigma_2$ and $\Gamma \vdash \sigma_2 <: \sigma_3$ by S-Refl2 or one of S-Effect.  By lemma \ref{lemma-trans-effect} transitivity of subeffecting, it is easy to see $\Gamma \vdash \sigma_1 <: \sigma_3$
+
+\item[IS1] Assume we used S-Alg $n$ times to derive $\Gamma \vdash \{x \Rightarrow \sigma_i^{i\in1...m}\} <:  \{x \Rightarrow {\sigma'}_i^{i\in1...n}\} $ and \mbox{$\Gamma \vdash \{x \Rightarrow {\sigma'}_i^{i\in1...n}\} <:  \{x \Rightarrow {\sigma''}_i^{i\in1...k}\}$}. By inversion of S-Alg, there is an injection $p: \{1..n\} \mapsto  \{1..m\}$ such that $\forall i \in 1..n,\ \Gamma, x: \{x \Rightarrow {\sigma}_i^{i\in 1..m} \} \vdash \sigma_{p(i)} <: \sigma'_i$. There is another injection $q: \{1..k\} \mapsto \{1..n\}$ such that $\forall i \in 1..k,\ \Gamma, x: \{x \Rightarrow {\sigma'}_i^{i\in 1..n} \} \vdash \sigma'_{q(i)} <: \sigma''_i$. So for each $i \in 1..k$ we have two judgments 
+\begin{align*}
+\Gamma, x: \{x \Rightarrow {\sigma}_i^{i\in 1..m} \} &\vdash \sigma_{p(q(i))} <: \sigma'_{q(i)}\\
+\Gamma, x: \{x \Rightarrow {\sigma'}_i^{i\in 1..n} \} &\vdash \sigma'_{q(i)} <: \sigma''_i
+\end{align*}
+By lemma \ref{lemma-context-type}, we can write the second judgment as $\Gamma, x: \{x \Rightarrow {\sigma}_i^{i\in 1..m} \} \vdash \sigma'_{q(i)} <: \sigma''_{i}$. By IH, for all $i \in 1..k$, $ \Gamma, x: \{x \Rightarrow {\sigma''}_i^{i\in 1..k} \} \vdash \sigma_{p(q(i))} <: \sigma''_i$. Since the  function $p \circ q$ is a bijection from $\{1..k\} \mapsto \{1..n\}$, we can use the rule S-Alg again to derive $\Gamma \vdash \{x \Rightarrow \sigma_i^{i\in1...m}\} <:  \{x \Rightarrow {\sigma''}_i^{i\in1...k}\} $ 
+\item[IS2] Assume we used S-Alg $n$ times to derive 
+$\Gamma \vdash \keyw{def} m(x : \tau_1) : \{ \varepsilon_1 \}~\tau_1' <: \keyw{def} m(x : \tau_2) : \{ \varepsilon_2 \}~\tau_2'$
+and
+$\Gamma \vdash \keyw{def} m(x : \tau_2) : \{ \varepsilon_2 \}~\tau_2' <: \keyw{def} m(x : \tau_3) : \{ \varepsilon_3 \}~\tau_3'$. By inverse on S-Def, we have $\Gamma \vdash \tau_2 <: \tau_1$, $\Gamma \vdash \tau_3 <: \tau_2$, $\Gamma \vdash \tau_1' <: \tau_2'$, and $\Gamma \vdash \tau_2' <: \tau_3'$. By IH, we have $\Gamma \vdash \tau_1' <: \tau_3'$ and $\Gamma \vdash \tau_3 <: \tau_1$. We have $\Gamma \vdash \varepsilon_1 <: \varepsilon_3$ by transitivity of subeffects. Hence we can use S-Def again to derive $\Gamma \vdash \keyw{def} m(x : \tau_1) : \{ \varepsilon_1 \}~\tau_1' <: \keyw{def} m(x : \tau_3) : \{ \varepsilon_3 \}~\tau_3'$. 
+\item[IS3] By transitivity of subeffecting, other cases for $\Gamma \vdash \sigma_1 <: \sigma_3$ are trivial. 
+
+\end{itemize}
+\end{proof}
+
+
+
+\section{Proof of the Type Soundness Theorems}
+\label{app-effects-type-soundness}
+
+\subsection{Lemmas}
+
+%\begin{lemma}[Permutation]
+%If \mbox{$\Gamma~|~\varnothing \vdash e : \{ \varepsilon \}~\tau$} and $\Delta$ is a permutation of $\Gamma$, then\linebreak
+%\mbox{$\Delta~|~\varnothing \vdash e : \{ \varepsilon \}~\tau$}, and the latter derivation has the same depth as the former.
+%\end{lemma}
+
+\begin{proof}
+Straightforward induction on typing derivations.
+\end{proof}
+
+
+\begin{lemma}[Weakening]
+If $\Gamma~|~\varnothing \vdash e : \{ \varepsilon \}~\tau$ and $x \not\in dom(\Gamma)$, then $\Gamma,~x : \tau'~|~\varnothing \vdash e : \{ \varepsilon \}~\tau$, and the latter derivation has the same depth as the former.
+\end{lemma}
+
+\begin{proof}
+Straightforward induction on typing derivations.
+\end{proof}
+
+
+\sloppy
+\begin{lemma}[Reverse of \textsc{Subeffecting-Lowerbound}] \label{lemma-reverse1}
+If $\Gamma \vdash \varepsilon_1 <: \varepsilon_2 \cup \{x.g\}$
+, $\Gamma \vdash x : \{y \Rightarrow \sigma\}$, and
+$\keyw{effect}\ g \leqslant \varepsilon \in \sigma$
+then 
+$\Gamma \vdash \varepsilon_1 <: \varepsilon_2 \cup [x/y]\varepsilon$
+\end{lemma}
+\begin{proof}
+We prove this by induction on $size(\varepsilon_1 \cup \varepsilon_2 \cup \{x.g\})$, which is defined in Fig. \ref{f-size}
+\begin{enumerate}
+    \item[BC] If $size(\varepsilon_1 \cup \varepsilon_2 \cup \{x.g\}) = 0$. Then $x.g$ can not have a definition. This case is vacuously true.
+    \item[IS] We case on the rule used to derive  $\Gamma \vdash \varepsilon_1  <: \varepsilon_2 \cup \{x.g\}$:
+    \begin{enumerate}
+        \item  $\Gamma \vdash \varepsilon_1  <: \varepsilon_2 \cup \{x.g\}$ is derived by Subeffect-Subset: If $x.g \not\in \varepsilon_1$, then we can use Subeffect-Subset to show 
+        $\Gamma \vdash \varepsilon_1  <: \varepsilon_2 \cup [x/y]\varepsilon$
+        If $x.g \in \varepsilon_1$. Then $\varepsilon_1 = \varepsilon_1' \cup \{x.g\}$, where $\varepsilon_1' \subseteq \varepsilon_2$. So we can use Subeffect-Def-1 to show
+        $\Gamma \vdash \varepsilon_1' \cup \{x.g\}  <: \varepsilon_2 \cup [x/y]\varepsilon$
+        \item $\Gamma \vdash \varepsilon_1  <: \varepsilon_2 \cup \{x.g\}$ is derived by Subeffect-Upperbound:\\
+        Then we have 
+        $\varepsilon_1 = \varepsilon_1' \cup \{z.h\}$,
+        $\Gamma \vdash z : \{y' \Rightarrow\sigma\}$, 
+        $\keyw{effect}\ h = \{ \varepsilon'\} \in \sigma$,
+        and 
+        \mbox{$\Gamma \vdash \varepsilon_1' \cup [z/y']\varepsilon' <: \varepsilon_2 \cup \{x.g\}$}
+        By IH, we have 
+        $\Gamma \vdash \varepsilon_1' \cup [z/y']\varepsilon' <: \varepsilon_2 \cup [x/y]\varepsilon$
+        Using Subeffect-Upperbound, we have 
+        $\Gamma \vdash \varepsilon_1' \cup \{z.h\} <: \varepsilon_2 \cup [x/y]\varepsilon$
+        \item $\Gamma \vdash \varepsilon_1  <: \varepsilon_2 \cup \{x.g\}$ is derived by Subeffect-Def-1:\\
+        If Subeffect-Def-1 uses the effect ${x.g}$, then we immediately have
+        $\Gamma \vdash \varepsilon_1 <: \varepsilon_2 \cup [x/y]\varepsilon$
+        Otherwise, if Subeffect-Def-1 doesn't use $x.g$, then we have 
+        \mbox{$\varepsilon_2 = \varepsilon_2' \cup \{z.h\}$},
+        \mbox{$\Gamma \vdash z : \{y' \Rightarrow\sigma\}$},
+        \mbox{$\keyw{effect}\ h = \{ \varepsilon'\} \in \sigma$},
+        and 
+        \mbox{$\Gamma \vdash \varepsilon_1  <: \varepsilon_2' \cup [z/y']\varepsilon' \cup \{x.y\}$}.
+        By IH, we have
+        \mbox{$\Gamma \vdash \varepsilon_1  <: \varepsilon_2' \cup [z/y']\varepsilon' \cup [x/y]\varepsilon$}.
+        Using Subeffect-Def-1, we have
+        \mbox{$\Gamma \vdash \varepsilon_1<: \varepsilon_2 \cup [x/y]\varepsilon$}
+        \item \mbox{$\Gamma \vdash \varepsilon_1  <: \varepsilon_2 \cup \{x.g\}$} is derived by Subeffect-Def-2:\\ This case is similar to (b)
+    \end{enumerate}
+\end{enumerate}
+\end{proof}
+
+
+
+\begin{lemma}[Reverse of \textsc{Subeffecting-Def-2}] \label{lemma-reverse2}
+If $\Gamma \vdash \varepsilon_1 \cup \{x.g\} <: \varepsilon_2$
+, $\Gamma \vdash x : \{y \Rightarrow \sigma\}$, and
+$\keyw{effect}\ g = \{\varepsilon\} \in \sigma$
+then 
+$\Gamma \vdash \varepsilon_1 \cup [x/y]\varepsilon <: \varepsilon_2$
+\end{lemma}
+
+\begin{proof}
+We prove this by induction on $size(\varepsilon_1 \cup \varepsilon_2 \cup \{x.g\})$, which is defined in Fig. \ref{f-size}
+\begin{enumerate}
+    \item[BC] If $size(\varepsilon_1 \cup \varepsilon_2 \cup \{x.g\}) = 0$. Then $x.g$ can not have a definition. This case is vacuously true.
+    \item[IS] We case on the rule used to derive  $\Gamma \vdash \varepsilon_1 \cup \{x.g\} <: \varepsilon_2$:
+    \begin{enumerate}
+        \item  $\Gamma \vdash \varepsilon_1 \cup \{x.g\} <: \varepsilon_2$ is derived by Subeffect-Subset:\\
+        Then $x.g \in \varepsilon_2$. So we can use Subeffect-Def-1 to derive $\Gamma \vdash \varepsilon_1 \cup [x/y]\varepsilon <: \varepsilon_2$
+        \item $\Gamma \vdash \varepsilon_1 \cup \{x.g\} <: \varepsilon_2$ is derived by Subeffect-Upperbound:\\
+        If the Subeffect-Upperbound rule uses the effect $x.g$, then we by the premise of Subeffect-Upperbound, we have
+        $\Gamma \vdash \varepsilon_1 \cup [x/y]\varepsilon <: \varepsilon_2$
+        If the Subeffect-Upperbound rule does not use the effect $x.g$, then we have 
+        $\varepsilon_1 = \varepsilon_1' \cup \{z.h\}$,
+        $\Gamma \vdash z : \{y' \Rightarrow\sigma\}$,
+        $\keyw{effect}\ h \leqslant \varepsilon' \in \sigma$,
+        and 
+        $\Gamma \vdash \varepsilon_1' \cup [z/y']\varepsilon' \cup \{x.g\} <: \varepsilon_2$
+        By IH, we have
+        $\Gamma \vdash \varepsilon_1' \cup [z/y']\varepsilon' \cup [x/y]\varepsilon <: \varepsilon_2$.
+        Using Subeffect-Upperbound, we derive
+        $\Gamma \vdash \varepsilon_1 \cup [x/y]\varepsilon <: \varepsilon_2$.
+        \item $\Gamma \vdash \varepsilon_1 \cup \{x.g\} <: \varepsilon_2$ is derived by Subeffect-Def-1:\\
+        Then we have 
+        $\varepsilon_2 = \varepsilon_2' \cup \{z.h\}$,
+        $\Gamma \vdash z : \{y' \Rightarrow\sigma\}$,
+        $\keyw{effect}\ h = \{ \varepsilon'\} \in \sigma$,
+        and 
+        \mbox{$\Gamma \vdash \varepsilon_1 \cup \{x.g\} <: \varepsilon_2' \cup [z/y']\varepsilon'$}.
+        By IH, we have
+        \mbox{$\Gamma \vdash \varepsilon_1 \cup [x/y]\varepsilon <: \varepsilon_2' \cup [z/y']\varepsilon'$}.
+        Using Subeffect-Def-1, we have
+        $\Gamma \vdash \varepsilon_1 \cup [x/y]\varepsilon <: \varepsilon_2 \cup \{z.h\}$.
+        \item $\Gamma \vdash \varepsilon_1 \cup \{x.g\} <: \varepsilon_2$ is derived by Subeffect-Def-2:\\ This case is similar to (b)
+    \end{enumerate}
+\end{enumerate}
+\end{proof}
+
+
+
+
+
+\begin{lemma}[Transitivity in subeffecting]
+If $\Gamma \vdash \varepsilon_1 <: \varepsilon_2$ and $\Gamma \vdash \varepsilon_2 <: \varepsilon_3$, then $\Gamma \vdash \varepsilon_1 <: \varepsilon_3$.
+\label{lemma-trans-effect}
+\end{lemma}
+\begin{proof}
+We prove this using structural induction on $size(\Gamma, \varepsilon_1 \cup \varepsilon_2 \cup \varepsilon_3)$, which is defined in Fig. \ref{f-size}
+
+\begin{enumerate}
+\item[BC] Let $size(\Gamma, \varepsilon_1 \cup \varepsilon_2 \cup \varepsilon_3) = 0$. The judgments $\Gamma \vdash \varepsilon_1 <: \varepsilon_2$ and $\Gamma \vdash \varepsilon_2 <: \varepsilon_3$ are derived from Subeffect-Subset. So we have transitivity immediately.
+\item[IS] Let $N \geq 0$, assume $\forall \varepsilon_1, \varepsilon_2, \varepsilon_3$ with $size(\Gamma, \varepsilon_1 \cup \varepsilon_2 \cup \varepsilon_3) \leq N$, if $\varepsilon_1 <: \varepsilon_2$ and $\varepsilon_2 <: \varepsilon_3$, then $\varepsilon_1 <: \varepsilon_3$. Let $\Gamma \vdash \varepsilon_1 <: \varepsilon_2$ and $\Gamma \vdash \varepsilon_2 <: \varepsilon_3$ and $size(\Gamma, \varepsilon_1 \cup \varepsilon_2 \cup \varepsilon_3) = N+1$. Want to show $\varepsilon_1 <: \varepsilon_3$. We case on the rules used to derive $\Gamma \vdash \varepsilon_1 <: \varepsilon_2$ and $\Gamma \vdash \varepsilon_2 <: \varepsilon_3$
+\begin{enumerate}
+    \item $\Gamma \vdash \varepsilon_1 <: \varepsilon_2$ by Subeffect-Subset
+    \begin{enumerate}
+        \item $\Gamma \vdash \varepsilon_2 <: \varepsilon_3$ by Subeffect-Subset. \\
+        Transitivity in this case is trivial.
+        \item $\Gamma \vdash \varepsilon_2 <: \varepsilon_3$ by Subeffect-Upperbound. \\
+        Let $\varepsilon_2 = \varepsilon_2' \cup \{x.g\}$. By Subeffect-Upperbound, we have $\Gamma \vdash x : \{y \Rightarrow \sigma\}$ $\keyw{effect}\ g \leqslant \varepsilon \in \sigma$ and $\varepsilon_2'\cup [x/y]\varepsilon <: \varepsilon_3$ There are two cases:
+        \begin{enumerate}
+            \item  If $\{x.g\} \not\in \varepsilon_1$, then $\varepsilon_1 \subseteq \varepsilon_2'$. Therefore $\Gamma \vdash \varepsilon_1 <: \varepsilon_2'\cup [x/y]\varepsilon$. By induction hypothesis, we have $\Gamma \vdash \varepsilon_1 <: \varepsilon_3$. 
+            \item  If $\{x.g\} \in \varepsilon_1$, then $\varepsilon_1 = \varepsilon_1'\cup \{x.g\}$, and $\varepsilon_1' \subseteq \varepsilon_2'$. So we have $\Gamma \vdash \varepsilon_1'\cup [x/y]\varepsilon <: \varepsilon_2'\cup [x/y]\varepsilon$ by Subeffect-Subset. By IH, we have $\varepsilon_1'\cup[x/y]\varepsilon <: \varepsilon_3$. Then we use Subeffect-Upperbound to derive $\varepsilon_1' \cup \{x.g\} <: \varepsilon_3$
+        \end{enumerate}       
+        \item 
+         $\Gamma \vdash \varepsilon_2 <: \varepsilon_3$ by Subeffect-Def-1.\\
+        Let $\varepsilon_3 = \varepsilon_3' \cup \{x.g\}$. We have
+        $\Gamma \vdash x : \{y \Rightarrow \sigma\}$,
+        $\keyw{effect}\ g = \{\varepsilon\}$,
+        and
+        $\Gamma \vdash \varepsilon_2 <: \varepsilon_3' \cup [x/y]\varepsilon$.
+        By IH, we have $\Gamma \vdash \varepsilon_1 <: \varepsilon_3' \cup [x/y]\varepsilon$
+        Then we can use Subeffect-Def-1 again to derive $\Gamma \vdash \varepsilon_1 <: \varepsilon_3$
+        
+
+        \item $\Gamma \vdash \varepsilon_2 <: \varepsilon_3$ by Subeffect-Def-2.\\
+        The proof is identical to ii.
+    \end{enumerate}
+    \item 
+    $\Gamma \vdash \varepsilon_1 <: \varepsilon_2$ by Subeffect-Upperbound. \\
+    So we have $\varepsilon_1 = \varepsilon_1' \cup \{x.g\}$.
+    $\Gamma \vdash x : \{y \Rightarrow \sigma\}$,
+    $\keyw{effect}\ g = \{\varepsilon\}$,
+    and
+    $\Gamma \vdash \varepsilon_1' \cup [x/y]\varepsilon <: \varepsilon_2$.
+    Using IH, we have 
+     $\Gamma \vdash \varepsilon_1' \cup [x/y]\varepsilon <: \varepsilon_3$.
+     Using Suveffect-Upperbound again, we have 
+     $\Gamma \vdash \varepsilon_1 <: \varepsilon_3$.
+
+    \item $\Gamma \vdash \varepsilon_1 <: \varepsilon_2$ by Subeffect-Def-1. \\
+    Therefore we let $\varepsilon_2 = \varepsilon_2' \cup \{x.g\}$, $\Gamma\vdash x:\{y \Rightarrow \sigma\}$, and $effect\ g = \{\varepsilon\} \in \sigma$. By premise of Subeffect-Def-1, we have $\Gamma \vdash \varepsilon_1 <: [x/y]\varepsilon \cup \varepsilon_2'$. Since $\Gamma \vdash \varepsilon_2 <: \varepsilon_3$, we have \mbox{$\Gamma \vdash \varepsilon_2' \cup \{x.g\} <: \varepsilon_3$}. 
+    \begin{enumerate}
+        \item $\Gamma \vdash \varepsilon_2' \cup \{x.g\} <: \varepsilon_3$ by Subeffect-Subset\\
+        Then we have $\varepsilon_3 = \varepsilon_3' \cup \{x.g\}$, and $\varepsilon_2' \subseteq \varepsilon_3'$. Therefore we have $\varepsilon_2' \cup [x/y]\varepsilon \subseteq \varepsilon_3' \cup [x/y] \varepsilon$. Therefore, $\Gamma \vdash\varepsilon_2' \cup [x/y]\varepsilon  <: \varepsilon_3' \cup [x/y] \varepsilon $. By IH, we have $\Gamma \vdash \varepsilon_1 <: \varepsilon_3' \cup [x/y] \varepsilon$. By Subeffect-Def-1 ,we have $\Gamma\vdash \varepsilon_1 <: \varepsilon_3' \cup \{x.g\} = \varepsilon_3$
+        \item $\Gamma \vdash \varepsilon_2 <: \varepsilon_3$ by Subeffect-Upperbound\\
+      Since the effect $\{x.g\}$ is used by Subeffect-Def-1, it is not used by the rule Subeffect-Upperbound. Let $\varepsilon_2 = \varepsilon_2'' \cup \{x.g\} \cup \{z.h\}$. By Subeffect-Def-1, we have \mbox{$\Gamma \vdash \varepsilon_1 <: \varepsilon_2'' \cup [x/y]\varepsilon \cup \{z.h\}$}. By Subeffect-Upperbound, we have 
+      $\Gamma \vdash z:\{y' \Rightarrow \sigma'\}$,
+      $\keyw{effect}\ h \leqslant \varepsilon' \in \sigma'$,
+      and $\Gamma \vdash \varepsilon_2'' \cup \{x.g\} \cup [z/y']\varepsilon' <: \varepsilon_3$.
+      By Lemma \ref{lemma-reverse1} and $\Gamma \vdash \varepsilon_1 <: \varepsilon_2'' \cup [x/y]\varepsilon \cup \{z.h\}$ , we have 
+      $\Gamma \vdash \varepsilon_1 <: \varepsilon_2''\cup [x.y]\varepsilon \cup [z/y']\varepsilon'$.
+      By Lemma \ref{lemma-reverse2} and $\Gamma \vdash \varepsilon_2'' \cup \{x.g\} \cup [z/y']\varepsilon' <: \varepsilon_3$, we have 
+      $\Gamma \vdash \varepsilon_2'' \cup [x/y]\varepsilon \cup [z/y']\varepsilon' <: \varepsilon_3$.
+      Therefore, we use IH to derive $\Gamma \vdash \varepsilon_1 <: \varepsilon_3$.
+      
+        
+        \item $\Gamma \vdash \varepsilon_2 <: \varepsilon_3$ by Subeffect-Def-1\\
+        Therefore, let $\varepsilon_3 = \varepsilon_3' \cup \{z.h\}$, $\Gamma \vdash z:\{y \Rightarrow \sigma'\}$, and $effect\ h = \{\varepsilon'\} \in \sigma'$. And we have $\Gamma \vdash \varepsilon_2 <: \varepsilon_3' \cup \{z.h\}$. By premise of Subeffect-Def-1, we have $\Gamma \vdash \varepsilon_2 <: [z/y]\varepsilon'\cup\varepsilon_3'$. By IH, we have $\Gamma \vdash \varepsilon_1 <: [z/y]\varepsilon'\cup\varepsilon_3'$. Using Subeffect-Def-1, we derive that $\Gamma \vdash \varepsilon_1 <: \varepsilon_3$. 
+        \item $\Gamma \vdash \varepsilon_2 <: \varepsilon_3$ by Subeffect-Def-2\\
+        This case is identical to c (ii) 
+    \end{enumerate}
+    \item $\Gamma \vdash \varepsilon_1 <: \varepsilon_2$ by Subeffect-Def-2\\
+    This case is identical to (b)
+    \item $\Gamma \vdash \varepsilon_1 <: \varepsilon_2$ by Subeffect-Lowerbound\\
+    This case is identical to (c)
+\end{enumerate}
+
+\end{enumerate}
+\end{proof}
+
+
+
+\begin{lemma}[Substitution in types]
+If \mbox{$\Gamma,~z : \tau \vdash \tau_1 <:  \tau_2$} and \mbox{$\Gamma~|~\Sigma \vdash l : \{ \}~[l/z]\tau$}, then\linebreak
+\mbox{$\Gamma \vdash [l/z]\tau_1 <: [l/z]\tau_2$}. Furthermore, if \mbox{$\Gamma,~z : \tau \vdash \sigma_1 <: \sigma_2$} and \mbox{$\Gamma~|~\Sigma \vdash l : \{ \}~[l/z]\tau$}, then\linebreak
+\mbox{$\Gamma \vdash [l/z]\sigma_1 <: [l/z]\sigma_2$}.
+\label{lemma-substitution-types}
+\end{lemma}
+
+\begin{proof} The proof is by simultaneous induction on a derivation of \mbox{$\Gamma,~z : \tau \vdash \tau_1 <:  \tau_2$} and \linebreak
+    \mbox{$\Gamma,~z : \tau \vdash \sigma_1 <: \sigma_2$}. For a given derivation, we proceed by cases on the final typing rule used in the derivation:\\
+
+\noindent\underline{\textit{Case \textsc{S-Refl1}:}} \mbox{$\tau_1 = \tau_2$}, and the desired result is immediate.\\
+
+\noindent\underline{\textit{Case \textsc{S-Trans}:}} By inversion on \textsc{S-Trans}, we get \mbox{$\Gamma,~z : \tau \vdash \tau_1 <: \tau_2$} and \mbox{$\Gamma,~z : \tau \vdash \tau_2 <: \tau_3$}. By the induction hypothesis, \mbox{$\Gamma \vdash [l/z]\tau_1 <: [l/z]\tau_2$} and \mbox{$\Gamma \vdash [l/z]\tau_2 <: [l/z]\tau_3$}. Then, by\linebreak
+\mbox{\textsc{S-Trans}}, \mbox{$\Gamma \vdash [l/z]\tau_1 <: [l/z]\tau_3$}.\\
+
+\noindent\underline{\textit{Case \textsc{S-Perm}:}} \mbox{$\tau_1 = \{ x \Rightarrow \sigma_i^{i \in 1..n} \}$} and \mbox{$\tau_2 = \{ x \Rightarrow \sigma_i'^{i \in 1..n} \}$}. Substitution preserves the permutation relations, and thus, \mbox{$[l/z]\{ x \Rightarrow \sigma_i^{i \in 1..n} \}$} is a permutation of \mbox{$[l/z]\{ x \Rightarrow \sigma_i'^{i \in 1..n} \}$}. Then, by \textsc{S-Perm}, \mbox{$\Gamma \vdash [l/z]\{ x \Rightarrow \sigma_i^{i \in 1..n} \} <: [l/z]\{ x \Rightarrow \sigma_i'^{i \in 1..n} \}$}.\\
+
+\noindent\underline{\textit{Case \textsc{S-Width}:}} \mbox{$\tau_1 = \{ x \Rightarrow \sigma_i^{i \in 1..n + k} \}$} and \mbox{$\tau_2 = \{ x \Rightarrow \sigma_i^{i \in 1..n} \}$}, and the desired result is immediate.\\
+
+\noindent\underline{\textit{Case \textsc{S-Depth}:}} \mbox{$\tau_1 = \{ x \Rightarrow \sigma_i^{i \in 1..n} \}$} and \mbox{$\tau_2 = \{ x \Rightarrow {\sigma'}_i^{i \in 1..n} \}$}.  By inversion on \textsc{S-Depth}, \linebreak we get \mbox{$\forall i,~\Gamma,~x : \{ x \Rightarrow {\sigma}_i^{i \in 1..n} \},~z : \tau \vdash \sigma_i <: \sigma_i'$}. By the induction hypothesis, \linebreak
+\mbox{$\forall i,~\Gamma,~x : \{ x \Rightarrow {\sigma}_i^{i \in 1..n} \} \vdash [l/z]\sigma_i <: [l/z]\sigma_i'$}. Then, by \textsc{S-Depth}, \linebreak
+\mbox{$\Gamma \vdash [l/z]\{ x \Rightarrow \sigma_i^{i \in 1..n} \} <: [l/z]\{ x \Rightarrow \sigma_i'^{i \in 1..n} \}$}.\\
+
+
+\noindent\underline{\textit{Case \textsc{S-Refl2}:}} \mbox{$\sigma_1 = \sigma_2$}, and the desired result is immediate.\\
+
+\sloppy
+\noindent\underline{\textit{Case \textsc{S-Def}:}} \mbox{$\sigma_1 = \keyw{def} m(x : \tau_1) : \{ \varepsilon_1 \}~\tau_2$} and \mbox{$\sigma_2 = \keyw{def} m(x : \tau_1') : \{ \varepsilon_2 \}~\tau_2'$}. By inversion on \textsc{S-Def}, we get \mbox{$\Gamma,~z : \tau \vdash \tau_1' <: \tau_1$}, \mbox{$\Gamma,~z : \tau \vdash \tau_2 <: \tau_2'$}, \mbox{$\Gamma, z : \tau \vdash \varepsilon_1 <: \varepsilon_2$}. By the induction hypothesis, \mbox{$\Gamma \vdash [l/z]\tau_1' <: [l/z]\tau_1$} and \mbox{$\Gamma \vdash [l/z]\tau_2 <: [l/z]\tau_2'$}. By lemma \ref{lemma-sub-effects}, \mbox{$\Gamma \vdash [l/z]\varepsilon_1 <: [l/z]\varepsilon_2$}. Then, by \textsc{S-Def}, \mbox{$\Gamma \vdash [l/z](\keyw{def} m(x : \tau_1) : \{ \varepsilon_1 \}~\tau_2) <: [l/z](\keyw{def} m(x : \tau_1') : \{ \varepsilon_2 \}~\tau_2')$}.\\
+
+\noindent\underline{\textit{Case \textsc{S-Effect}:}} \mbox{$\sigma_1 = \keyw{effect} g = \{ \varepsilon \}$} and \mbox{$\sigma_2 = \keyw{effect} g$}, and the desired result is immediate.\\
+
+\noindent Thus, substituting terms in types preserves the subtyping relationship.
+\end{proof}
+
+
+\begin{lemma}[Substitution in expressions and effects]
+\label{lemma-sub-effects}
+If \mbox{$\Gamma,~z : \tau'~|~\Sigma \vdash e :  \{ \varepsilon \}~\tau$} and \mbox{$\Gamma~|~\Sigma \vdash l : \{ \}~[l/z]\tau'$}, then \mbox{$\Gamma~|~\Sigma \vdash [l/z]e :  \{ [l/z]\varepsilon \}~[l/z]\tau$}. \\[3ex] And if $\Gamma, z : \tau' \mid \Sigma \vdash \varepsilon_1 <: \varepsilon_2$ and $\Gamma \mid \Sigma \vdash l : \{\} [l/z]\tau$, then $\Gamma \mid \Sigma \vdash [l/z] \varepsilon_1 <: [l/z] \varepsilon_2$.\\[3ex]
+And if \mbox{$\Gamma,~z : \tau'~|~\Sigma \vdash d : \sigma$} and
+\mbox{$\Gamma~|~\Sigma \vdash l : \{ \}~[l/z]\tau'$}, then $\Gamma~|~\Sigma \vdash [l/z]d : [l/z]\sigma$. \\[3ex]
+Furthermore, if $\Gamma, z : \tau' \mid \Sigma \vdash \varepsilon\ {wf}$,  then 
+$\Gamma \mid \Sigma \vdash [l/z]\varepsilon\ {wf}$
+\end{lemma}
+
+\begin{proof} The proof is by simultaneous induction on a derivation of $\Gamma,~z : \tau'~|~\Sigma \vdash e : \{ \varepsilon \}~\tau$, $\Gamma,~z : \tau'~|~\Sigma \vdash d : \sigma$, $\Gamma, z :\tau' \mid \Sigma \vdash \varepsilon_1 <: \varepsilon_1$, and $\Gamma, z : \tau' \mid \Sigma \vdash \varepsilon wf$. For a given derivation, we proceed by cases on the final typing rule used in the derivation:\\
+
+\noindent\underline{\textit{Case \textsc{T-Var}:}} $e = x$, and by inversion on \textsc{T-Var}, we get \mbox{$x : \tau \in (\Gamma,~z : \tau')$}. There are two subcases to consider, depending on whether $x$ is $z$ or another variable. If $x = z$, then $[l/z]x = l$ and $\tau = \tau'$. The required result is then $\Gamma~|~\Sigma \vdash l : \{ \}~[l/z]\tau'$, which is among the assumptions of the lemma. Otherwise, $[l/z]x = x$, and the desired result is immediate.\\
+
+\noindent\underline{\textit{Case \textsc{T-New}:}} \mbox{$e = \keywadj{new}(x \Rightarrow \overline{d})$}, and by inversion on \textsc{T-New}, we get\linebreak
+\mbox{$\forall i,~d_i \in \overline{d},~\sigma_i \in \overline{\sigma},~\Gamma,~x : \{ x \Rightarrow \overline{\sigma} \},~z : \tau'~|~\Sigma \vdash d_i : \sigma_i$}. By the induction hypothesis,
+\mbox{$\forall i,~d_i \in \overline{d},~\sigma_i \in \overline{\sigma},~\Gamma,~x : \{ x \Rightarrow \overline{\sigma} \}~|~\Sigma \vdash [l/z]d_i : [l/z]\sigma_i$}. Then, by \textsc{T-New},
+\mbox{$\Gamma~|~\Sigma \vdash \keywadj{new}(x \Rightarrow [l/z]\overline{d}) : \{ \}~\{ x \Rightarrow [l/z]\overline{\sigma} \}$}, i.e.,
+\mbox{$\Gamma~|~\Sigma \vdash [l/z](\keywadj{new}(x \Rightarrow \overline{d})) : \{ \}~[l/z]\{ x \Rightarrow \overline{\sigma} \}$}.\\
+
+\noindent\underline{\textit{Case \textsc{T-Method}:}} \mbox{$e = e_1.m(e_2)$}, and by inversion on \textsc{T-Method}, we get
+\mbox{$\Gamma,~z : \tau'~|~\Sigma \vdash e_1 : \{ \varepsilon_1 \}~\{ x \Rightarrow \overline{\sigma} \}$}; \mbox{$\keyw{def}~ m(y : \tau_2) : \{ \varepsilon_3 \}~\tau_1 \in \overline{\sigma}$};
+\mbox{$\Gamma,~z : \tau'~|~\Sigma \vdash [e_1/x][e_2/y]\varepsilon_3~\mathit{wf}$}; and $\Gamma,~z : \tau'~|~\Sigma \vdash e_2 : \{ \varepsilon_2 \}~[e_1/x]\tau_2$. By the induction hypothesis, \mbox{$\Gamma~|~\Sigma \vdash [l/z]e_1 : \{ [l/z]\varepsilon_1 \}~[l/z]\{ x \Rightarrow \overline{\sigma} \}$},
+\mbox{$\keyw{def}~ m(y : [l/z]\tau_2) : \{ [l/z]\varepsilon_3 \}~[l/z]\tau_1 \in [l/z]\overline{\sigma}$}, \mbox{$\Gamma~|~\Sigma \vdash [l/z]([e_1/x][e_2/y]\varepsilon_3)~\mathit{wf}$}, and
+\mbox{$\Gamma~|~\Sigma \vdash [l/z]e_2 : \{ [l/z]\varepsilon_2 \}~[l/z][e_1/x]\tau_2$}. Then, by \mbox{\textsc{T-Method}},
+\mbox{$\Gamma~|~\Sigma \vdash [l/z]e_1.m([l/z]e_2) : \{ [l/z]\varepsilon_1 \cup [l/z]\varepsilon_2 \cup [l/z]([e_1/x][e_2/y]\varepsilon_3) \}~[l/z]([e_1/x][e_2/y]\tau_1)$},
+i.e., \mbox{$\Gamma~|~\Sigma \vdash [l/z](e_1.m(e_2)) : \{ [l/z](\varepsilon_1 \cup \varepsilon_2 \cup [e_1/x][e_2/y]\varepsilon_3) \}~[l/z]([e_1/x][e_2/y]\tau_1)$}.\\
+
+\noindent\underline{\textit{Case \textsc{T-Field}:}} $e = e_1.f$, and by inversion on \textsc{T-Field}, we get $\Gamma,~z : \tau'~|~\Sigma \vdash e_1 : \{ \varepsilon \}~\{ x \Rightarrow \overline{\sigma} \}$ and \mbox{$\keyw{var}~ f : \tau \in \overline{\sigma}$}. By the induction hypothesis, $\Gamma~|~\Sigma \vdash [l/z]e_1 : \{ [l/z]\varepsilon \}~[l/z]\{ x \Rightarrow \overline{\sigma} \}$ and \mbox{$\keyw{var}~ f : [l/z]\tau \in [l/z]\overline{\sigma}$}. Then, by \textsc{T-Field}, $\Gamma~|~\Sigma \vdash ([l/z]e_1).f : \{ [l/z]\varepsilon \}~[l/z]\tau$, i.e., $\Gamma~|~\Sigma \vdash [l/z](e_1.f) : \{ [l/z]\varepsilon \}~[l/z]\tau$.\\
+
+\noindent\underline{\textit{Case \textsc{T-Assign}:}} \mbox{$e = (e_1.f = e_2)$}, and by inversion on \textsc{T-Assign}, we get
+\mbox{$\Gamma,~z : \tau'~|~\Sigma \vdash e_1 : \{ \varepsilon_1 \}~\{ x \Rightarrow \overline{\sigma} \}$}; $\keyw{var}~ f : \tau \in \overline{\sigma}$; and \mbox{$\Gamma,~z : \tau'~|~\Sigma \vdash e_2 : \{ \varepsilon_2 \}~\tau$}. By the induction hypothesis,  \mbox{$\Gamma~|~\Sigma \vdash [l/z]e_1 : \{ [l/z]\varepsilon_1 \}~[l/z]\{ x \Rightarrow \overline{\sigma} \}$}; \mbox{$\keyw{var}~ f : [l/z]\tau \in [l/z]\overline{\sigma}$};  and \mbox{$\Gamma~|~\Sigma \vdash [l/z]e_2 : \{ [l/z]\varepsilon_2 \}~[l/z]\tau$}. Then, by \textsc{T-Assign}, 
+\mbox{$\Gamma~|~\Sigma \vdash [l/z]e_1.f = [l/z]e_2 : \{ [l/z]\varepsilon_1 \cup [l/z]\varepsilon_2\}~[l/z]\tau$}, i.e.,
+\mbox{$\Gamma~|~\Sigma \vdash [l/z](e_1.f=e_2) : \{ [l/z](\varepsilon_1 \cup \varepsilon_2) \}~[l/z]\tau$}.\\
+
+\noindent\underline{\textit{Case \textsc{T-Loc}:}} $e = l$, $[l/z]l = l$, and the desired result is immediate.\\
+
+\noindent\underline{\textit{Case \textsc{T-Sub}:}} $e = e_1$, and by inversion on T-Sub, we get $\Gamma, z:\tau' \mid \Sigma \vdash e_1:\{\varepsilon_1\} \tau_1$, $\Gamma, z:\tau' \mid \Sigma \vdash \tau_1 <: \tau_2$ and $\Gamma, z:\tau' \mid \Sigma \vdash \varepsilon_1 <: \varepsilon_2$.
+    By induction hypothesis, we have
+    \mbox{$\Gamma \mid \Sigma \vdash [l/z]e_1:\{[l/z]\varepsilon_1\} [l/z]\tau_1$}, \mbox{$\Gamma \mid \Sigma \vdash [l/z]\tau_1 <: [l/z]\tau_2$}, and \mbox{$\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1 <: [l/z]\varepsilon_2$}.
+    Then, by T-sub,
+    \mbox{$\Gamma \mid \Sigma \vdash [l/z]e_1 : \{[l/z]\varepsilon_2\}[l/z]\tau_2$}
+
+\noindent\underline{\textit{Case \textsc{DT-Def}:}}  By inversion, we have 
+  $ \Gamma, z:\tau ,~x : \tau_1 \mid \Sigma \vdash e : \{ \varepsilon' \}~\tau_2$,
+  $\Gamma,z:\tau ,~x : \tau_1 \mid \Sigma \vdash \varepsilon~\mathit{wf} $,
+  $\Gamma, z:\tau \mid \Sigma \vdash \varepsilon' <: \varepsilon $,
+  By IH, we have
+\mbox{$ \Gamma ,~x : [l/z]\tau_1 \mid \Sigma \vdash [l/z]e : \{ [l/z]\varepsilon' \}~[l/z]\tau_2$},
+  \mbox{$\Gamma, ~x : [l/z]\tau_1 \mid \Sigma \vdash [l/z]\varepsilon~\mathit{wf} $},
+  \mbox{$\Gamma \mid \Sigma \vdash [l/z]\varepsilon' <: [l/z]\varepsilon $}.
+  By DT-Def, we have
+  \mbox{$\Gamma \mid \Sigma \vdash \keyw{def} m(x : [l/z]\tau_1) : \{ [l/z]\varepsilon \}~[l/z]\tau_2 = [l/z]e~:~\keyw{def} m(x : [l/z]\tau_1) : \{ [l/z]\varepsilon \}~[l/z]\tau_2$}
+
+\noindent\underline{\textit{Case \textsc{DT-Var}:}} $d = \keyw{var} f : \tau = n$, and by definition of $n$, there are two subcases:
+
+\underline{\textit{Subcase $n$ is $x$:}} In this case, \mbox{$d = \keyw{var} f : \tau = x$}, and by inversion on \textsc{DT-Var}, we get\linebreak
+\mbox{$\Gamma,~z : \tau'~|~\Sigma \vdash x : \{ \}~\tau$}. There are two subcases to consider, depending on whether $x$ is $z$ or another variable. If $x = z$, then by the induction hypothesis, \mbox{$\Gamma~|~\Sigma \vdash [l/z]x : \{ \}~[l/z]\tau$}, which yields \mbox{$\Gamma~|~\Sigma \vdash l : \{ \}~[l/z]\tau$} and \mbox{$\tau = \tau'$}, and thus,
+\mbox{$\Gamma~|~\Sigma \vdash \keyw{var} f : [l/z]\tau = l~:~\keyw{var} f : [l/z]\tau$}, i.e.,\linebreak
+\mbox{$\Gamma~|~\Sigma \vdash [l/z](\keyw{var} f : \tau = l)~:~[l/z](\keyw{var} f : \tau)$}, as required. If \mbox{$x \not = z$}, then
+\mbox{$\Gamma~|~\Sigma \vdash [l/z]x : \{ \}~[l/z]\tau$} yields \mbox{$\Gamma~|~\Sigma \vdash x : \{ \}~[l/z]\tau$}, and thus,
+\mbox{$\Gamma~|~\Sigma \vdash \keyw{var} f : [l/z]\tau = x~:~\keyw{var} f : [l/z]\tau$}, i.e.,\linebreak
+\mbox{$\Gamma~|~\Sigma \vdash [l/z](\keyw{var} f : \tau = x)~:~[l/z](\keyw{var} f : \tau)$}, as required.
+
+\underline{\textit{Subcase $n$ is $l$:}} In this case, \mbox{$d = \keyw{var} f : \tau = l$}, i.e., the field is resolved to a location $l$. This is not affected by the substitution, and the desired result is immediate.\\
+
+
+
+\noindent\underline{\textit{Case \textsc{DT-Effect}:}}
+By IH, we have
+ $\Gamma \mid \Sigma \vdash [l/z]\varepsilon\ wf$.
+ We use DT-Effect to derive
+ \mbox{$\Gamma \mid \Sigma \vdash \keyw{effect} \ g = \{[l/z]\varepsilon\} :\keyw{effect}\ g = \{[l/z]\varepsilon\}$}
+
+
+\noindent\underline{\textit{Case \textsc{Subeffect-Subset}:}}
+   By inversion, we have $\varepsilon_1 \subseteq \varepsilon_2$. So $[l/z] \varepsilon_1 \subseteq [l/z] \varepsilon_2$. By Subeffect-Subset, we have 
+    $\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1 <: [l/z]\varepsilon_2$.
+    
+    
+\noindent\underline{\textit{Case \textsc{Subeffect-Upperbound}:}}
+    By inversion, we have 
+    \mbox{$\varepsilon_1 = \varepsilon_1' \cup \{x.g\}$},
+    \mbox{$\Gamma, z:\tau \mid \Sigma \vdash x: \{y \Rightarrow \sigma \}$},
+    \mbox{$effect\ g \leqslant \{\varepsilon\} \in \sigma $}
+    and 
+    \mbox{$\Gamma, z:\tau \mid \Sigma \vdash \varepsilon_1' \cup [x/y]\varepsilon <: \varepsilon_2$}.
+    By IH, we have 
+    \mbox{$\Gamma \mid\Sigma \vdash [l/z]\varepsilon_1' \cup [l/z][x/y]\varepsilon <: [l/z]\varepsilon_2$}.
+    Since $y$ is a free variable, we select $y$ such that $x \neq y$ and $y \neq z$. We case on if $z = x$:
+    \begin{enumerate}
+    \item
+    If $z \neq x$, then we can swap the order of the substitutions on $\varepsilon$
+    \mbox{$\Gamma \mid\Sigma \vdash [l/z]\varepsilon_1' \cup [x/y][l/z]\varepsilon <: [l/z]\varepsilon_2$}.
+    Using substitution lemma for typing on \mbox{$\Gamma, z:\tau \mid \Sigma \vdash x: \{y \Rightarrow \sigma \}$}, we have 
+    \mbox{$\Gamma \mid \Sigma \vdash x : \{y \Rightarrow [l/z]\sigma \}$},
+    \mbox{$\keyw{effect}\ g \leqslant [l/z]\varepsilon \in [l/z]\sigma$}.
+    Using Subeffect-Upperbound, we have 
+    \mbox{$\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1' \cup \{x.g\} <: [l/z]\varepsilon_2$},
+    Which is equivalent to 
+    \mbox{$\Gamma \mid \Sigma \vdash [l/z] \varepsilon_1 <: [l/z] \varepsilon_2$}.
+     \item If $z = x$
+     Then we have
+     \mbox{$\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1'\cup [l/x,y]\varepsilon <:[l/z]\varepsilon_2$},
+     Which is equivalent to
+     \mbox{$\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1'\cup [l/y][l/z]\varepsilon <:[l/z]\varepsilon_2$}
+     We case on the derivation of \mbox{$\Gamma, z:\tau \mid \Sigma \vdash z : \{y \Rightarrow \sigma\}$}. 
+     \begin{enumerate}
+         \item (T-Var)\\[3ex]
+         \infer
+    {\Gamma, z:\tau \mid \Sigma \vdash z : \tau}
+    {z :\tau \in \Gamma, z : \tau}\\[3ex]
+    So $\tau = \{y \Rightarrow \sigma\}$. By our assumption, we have 
+    $\Gamma \mid \Sigma \vdash l : \{y \Rightarrow [l/z]\sigma\}$.
+    Since \mbox{$\keyw{effect}\ g\leqslant \varepsilon \in \sigma$}, we have
+    $\keyw{effect}\ g \leqslant [l/z]\varepsilon \in [l/z]\sigma$.
+    Therefore, we can use Subeffect-Upperbound on $\{l.g\}$ to derive 
+    $\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1' \cup \{l.g\} <: [l/z]\varepsilon_2$,
+    Which is equivalent to 
+    $\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1 <: [l/z]\varepsilon_2$
+    \item (T-Sub)\\[3ex]
+    \infer
+    {\Gamma, z : \tau \mid \Sigma \vdash z : \{y \Rightarrow \sigma\}}
+    {\Gamma, z : \tau\mid \Sigma \vdash z : \tau_1 \quad \Gamma, z:\tau\mid\Sigma \vdash \tau_1 <: \{y \Rightarrow \sigma\}}\\[3ex]
+    Notice that we introduced a new type $\tau_1$ that $z$ can be ascribed to. The judgment \mbox{$\Gamma, z : \tau\mid \Sigma \vdash z : \tau_1$} can be derived by T-Sub, which introduce a new type $\tau_2$ such that $\Gamma, z:\tau \mid \Sigma \vdash \tau_2 <: \tau_1$, or T-Var, which shows $\tau_1 = \tau$. Therefore if we follow the derivation tree, we get a chain relation
+    $\Gamma, z:\tau\mid\Sigma \vdash \tau_1 <: \{y \Rightarrow \sigma\}$,
+    $\Gamma, z:\tau\mid\Sigma \vdash \tau_2 <: \tau_1$,
+    $\dots$,
+    $\Gamma, z:\tau\mid\Sigma \vdash \tau <: \tau_n$.
+    We can apply IH on these judgments, so we have a chain
+    $\Gamma\mid\Sigma \vdash [l/z]\tau_1 <: \{y \Rightarrow [l/z]\sigma\}$,
+    $\Gamma\mid\Sigma \vdash [l/z]\tau_2 <: [l/z]\tau_1$
+    $\dots$,
+    $\Gamma\mid\Sigma \vdash [l/z]\tau <: [l/z]\tau_n$.
+    By transitivity of subtyping, we have
+    $\Gamma \mid \Sigma \vdash [l/z]\tau <: \{y \Rightarrow [l/z]\sigma\}$
+    So we have 
+    $\Gamma \mid \Sigma \vdash l : \{y \Rightarrow [l/z]\sigma\}$
+    The rest of the proof is similar to case (a).
+     \end{enumerate}
+     \end{enumerate}
+
+\noindent\underline{\textit{Case \textsc{Subeffect-Def-1}:}}
+    By inversion, we have 
+    $\varepsilon_2 = \varepsilon_2' \cup \{x.g\}$,
+    $\Gamma, z:\tau \mid \Sigma \vdash x: \{y \Rightarrow \sigma \}$,
+    \mbox{$\keyw{effect}\ g = \{\varepsilon\} \in \sigma $},
+    and 
+    $\Gamma, z:\tau \mid \Sigma \vdash \varepsilon_1 <: \varepsilon_2' \cup [x/y]\varepsilon$.
+    By IH, we have 
+    \mbox{$\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1 <: [l/z]\varepsilon_2' \cup [l/z][x/y]\varepsilon$}.
+    Since y is a free variable, we can select y such that $y \neq x$ and $y\neq z$. We case on if $x = z$:
+    \begin{enumerate}
+    \item If $z \neq x$, then
+    $\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1 <: [l/z]\varepsilon_2' \cup [x/y][l/z]\varepsilon$
+    By substitution lemma for typing, we have 
+    $\Gamma \mid \Sigma \vdash x : \{y \Rightarrow [l/z]\sigma \}$,
+    $\keyw{effect}\ g = [l/z]\varepsilon \in [l/z]\sigma$.
+    Using Subeffect-Def-1, we have
+    $\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1 <: [l/z]\varepsilon_2' \cup \{x.g\}$,
+    which is equivalent to 
+    $\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1 <: [l/z]\varepsilon_2$
+    \item If $z = x$
+     Then we have
+     $\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1 <:[l/z]\varepsilon_2' \cup [l/x, y]\varepsilon$,
+     which is equivalent to
+     $\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1  <:[l/z]\varepsilon_2' \cup [l/y][l/z]\varepsilon$
+     
+      We case on the derivation of $\Gamma, z:\tau \mid \Sigma \vdash z : \{y \Rightarrow \sigma\}$. \begin{enumerate}
+         \item (T-Var)\\[3ex]
+         \infer
+    {\Gamma, z:\tau \mid \Sigma \vdash z : \tau}
+    {z :\tau \in \Gamma, z : \tau}\\[3ex]
+    So $\tau = \{y \Rightarrow \sigma\}$. By our assumption, we have 
+    $\Gamma \mid \Sigma \vdash l : \{y \Rightarrow [l/z]\sigma\}$.
+    Since \mbox{$\keyw{effect}\ g = \{\varepsilon\} \in \sigma$}, we have
+    \mbox{$\keyw{effect}\ g = \{[l/z]\varepsilon\} \in [l/z]\sigma$}.
+    Therefore, we can use Subeffect-Def-1 on $\{l.g\}$ to derive 
+    $\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1 <: [l/z]\varepsilon_2' \cup \{l.g\}$,
+    Which is equivalent to 
+    $\Gamma \mid \Sigma \vdash [l/z]\varepsilon_1 <: [l/z]\varepsilon_2$
+    \item (T-Sub)\\[3ex]
+    \infer
+    {\Gamma, z : \tau \mid \Sigma \vdash z : \{y \Rightarrow \sigma\}}
+    {\Gamma, z : \tau\mid \Sigma \vdash z : \tau_1 \quad \Gamma, z:\tau\mid\Sigma \vdash \tau_1 <: \{y \Rightarrow \sigma\}}\\[3ex]
+    Notice that we introduced a new type $\tau_1$ that $z$ can be ascribed to. The judgment $\Gamma, z : \tau\mid \Sigma \vdash z : \tau_1$ can be derived by T-Sub, which introduce a new type $\tau_2$ such that $\Gamma, z:\tau \mid \Sigma \vdash \tau_2 <: \tau_1$, or T-Var, which shows $\tau_1 = \tau$. Therefore if we follow the derivation tree, we get a chain relation
+    $\Gamma, z:\tau\mid\Sigma \vdash \tau_1 <: \{y \Rightarrow \sigma\}$,
+    $\Gamma, z:\tau\mid\Sigma \vdash \tau_2 <: \tau_1$,
+    $\dots$,
+    $\Gamma, z:\tau\mid\Sigma \vdash \tau <: \tau_n$.
+    We can apply IH on these judgments, so we have a chain
+    $\Gamma\mid\Sigma \vdash [l/z]\tau_1 <: \{y \Rightarrow [l/z]\sigma\}$,
+    $\Gamma\mid\Sigma \vdash [l/z]\tau_2 <: [l/z]\tau_1$,
+    $\dots$,
+    $\Gamma\mid\Sigma \vdash [l/z]\tau <: [l/z]\tau_n$.
+    By transitivity of subtyping, we have
+    $\Gamma \mid \Sigma \vdash [l/z]\tau <: \{y \Rightarrow [l/z]\sigma\}$.
+    So we have 
+    $\Gamma \mid \Sigma \vdash l : \{y \Rightarrow [l/z]\sigma\}$.
+    The rest of the proof is similar to case (a).
+     \end{enumerate}
+    \end{enumerate}
+
+\noindent\underline{\textit{Case \textsc{Subeffect-Def-2}:}}
+This case is identical to \underline{\textit{Case \textsc{Subeffect-Upperbound}}}
+
+
+\noindent\underline{\textit{Case \textsc{Subeffect-Lowerbound}:}}
+This case is identical to \underline{\textit{Case \textsc{Subeffect-Def-1}}}
+
+
+\noindent\underline{\textit{Case \textsc{WF-Effect}:}}Let $n_i.g_j \in \varepsilon$ be arbitrary. By inversion, we have
+$\Gamma, z : \tau \mid \Sigma \vdash n_i : \{\} \{y_i \Rightarrow \overline{\sigma_i}\}$.
+and the effect declaration of $g_j$ is in $\overline{\sigma_i}$. 
+By IH, we have 
+$\Gamma \mid \Sigma \vdash [l/z]n_i : \{\} \{y_i \Rightarrow [l/z]\overline{\sigma_i}\}$
+and the effect declaration of $g_j$ is in $\overline{\sigma_i}$. So we have $[l/z]\varepsilon\ wf$ by WF-Effect. \\[3ex]
+
+
+\noindent Thus, substituting terms in a well-typed expression preserves the typing.
+\end{proof}
+
+
+\subsection{Proof of Theorem \ref{theorem-preservation} (Preservation)}
+\label{app-preservation}
+
+
+If \mbox{$\Gamma~|~\Sigma \vdash e : \{ \varepsilon \}~\tau$}, \mbox{$\mu : \Sigma$}, and \mbox{$\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle$}, then \mbox{$\exists \Sigma' \supseteq \Sigma$}, \mbox{$\mu' : \Sigma'$}, $\exists \varepsilon'$, such that $\Gamma \vdash \varepsilon' <: \varepsilon$, and \mbox{$\Gamma~|~\Sigma' \vdash e' : \{ \varepsilon' \}~\tau$}.
+
+
+\begin{proof} The proof is by induction on a derivation of \mbox{$\Gamma~|~\Sigma \vdash e : \{ \varepsilon \}~\tau$}. At each step of the induction, we assume that the desired property holds for all subderivations and proceed by case analysis on the final rule in the derivation. Since we assumed \mbox{$\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle$} and there are no evaluation rules corresponding to variables or locations, the cases when $e$ is a variable \mbox{(\textsc{T-Var})} or a location (\textsc{T-Loc}) cannot arise. For the other cases, we argue as follows:
+\\
+
+\noindent\underline{\textit{Case \textsc{T-New}:}}
+\mbox{$e = \keywadj{new}(x \Rightarrow \overline{d})$}, and by inversion on \textsc{T-New}, we get\linebreak
+\mbox{$\forall i,~d_i \in \overline{d},~\sigma_i \in \overline{\sigma},~\Gamma,~x : \{ x \Rightarrow \overline{\sigma} \}~|~\Sigma \vdash d_i : \sigma_i$}. The store changes from $\mu$ to\linebreak
+\mbox{$\mu' = \mu,~l \mapsto \{ x \Rightarrow \overline{d} \}$}, i.e., the new store is the old store augmented with a new mapping for the location $l$, which was not in the old store ($l \not \in \mathit{dom}(\mu)$). From the premise of the theorem, we know that $\mu : \Sigma$, and by the induction hypothesis, all expressions of $\Gamma$ are properly allocated in $\Sigma$. Then, by \textsc{T-Store}, we have $\mu,~l \mapsto \{ x \Rightarrow \overline{d} \}~:~\Sigma,~l : \{ x \Rightarrow \overline{\sigma} \}$, which implies that $\Sigma' = \Sigma,~l : \{ x \Rightarrow \overline{\sigma} \}$. Finally, by \textsc{T-Loc}, $\Gamma~|~\Sigma \vdash l : \{\}~\{ x \Rightarrow \overline{\sigma} \}$, and $\varepsilon' = \varnothing = \varepsilon$. Thus, the right-hand side is well typed.
+\\
+
+\noindent\underline{\textit{Case \textsc{T-Method}:}}
+$e = e_1.m(e_2)$, and by the definition of the evaluation relation, there are two subcases:
+
+\underline{\textit{Subcase \textsc{E-Congruence}:}} In this case, either $\langle e_1~|~\mu \rangle \longrightarrow \langle e_1'~|~\mu' \rangle$ or $e_1$ is a value and \mbox{$\langle e_2~|~\mu \rangle \longrightarrow \langle e_2'~|~\mu' \rangle$}. Then, the result follows from the induction hypothesis and \mbox{\textsc{T-Method}}.
+
+\underline{\textit{Subcase \textsc{E-Method}:}} In this case, both $e_1$ and $e_2$ are values, namely, locations $l_1$ and $l_2$ respectively. Then, by inversion on \textsc{T-Method}, we get that \mbox{$\Gamma~|~\Sigma \vdash e_1 : \{ \varepsilon_1 \}~\{ x \Rightarrow \overline{\sigma} \}$},\linebreak
+\mbox{$\keyw{def}~ m(y : \tau_2) : \{ \varepsilon_3 \}~\tau_1 \in \overline{\sigma}$}, $\Gamma~|~\Sigma \vdash [e_1/x][e_2/y]\varepsilon_3~\mathit{wf}$, $\Gamma~|~\Sigma \vdash e_2 : \{ \varepsilon_2 \}~[e_1/x]\tau_2$, and\linebreak
+$\varepsilon = \varepsilon_1 \cup \varepsilon_2 \cup [e_1/x][e_2/y]\varepsilon_3$. The store $\mu$ does not change, and since \mbox{\textsc{T-Store}} has been applied throughout, the store is well typed, and thus,\linebreak
+\mbox{$\Gamma~|~\Sigma \vdash \keyw{def} m(x : \tau_1) : \{ \varepsilon \}~\tau_2 = e~:~\keyw{def} m(x : \tau_1) : \{ \varepsilon \}~\tau_2$}. Then, by inversion on \mbox{\textsc{DT-Def}}, we know that \mbox{$\Gamma,~x : \tau_1~|~\Sigma \vdash e : \{ \varepsilon' \}~\tau_2$} and\linebreak
+$\Gamma, x : \tau_1 \mid \Sigma \vdash \varepsilon' <: \varepsilon$. Finally, by the subsumption lemma, substituting locations for variables in $e$ preserves its type, and therefore, the right-hand side is well typed.
+\\
+
+\noindent\underline{\textit{Case \textsc{T-Field}:}}
+$e = e_1.f$, and by the definition of the evaluation relation, there are two subcases:
+
+\underline{\textit{Subcase \textsc{E-Congruence}:}} In this case, $\langle e_1~|~\mu \rangle \longrightarrow \langle e_1'~|~\mu' \rangle$, and the result follows from the induction hypothesis and \textsc{T-Field}.
+
+\underline{\textit{Subcase \textsc{E-Field}:}} In this case, $e_1$ is a value, i.e., a location $l$. Then, by inversion on \mbox{\textsc{T-Field}}, we have $\Gamma~|~\Sigma \vdash l : \{ \varepsilon \}~\{ x \Rightarrow \overline{\sigma} \}$, where $\varepsilon = \varnothing$, and $\keyw{var}~ f : \tau \in \overline{\sigma}$. The store $\mu$ does not change, and since \textsc{T-Store} has been applied throughout, the store is well typed, and thus, \mbox{$\Gamma~|~\Sigma \vdash \keyw{var}~ f : \tau = l_1~:~\keyw{var}~ f : \tau$}. Then, by inversion on \textsc{DT-Varl}, we know that\linebreak
+\mbox{$\Gamma~|~\Sigma \vdash l_1 : \{ \}~\tau$} and $\varepsilon' = \varnothing = \varepsilon$, and the right-hand side is well typed.
+\\
+
+\noindent\underline{\textit{Case \textsc{T-Assign}:}}
+$e = (e_1.f = e_2)$, and by the definition of the evaluation relation, there are two subcases:
+
+\underline{\textit{Subcase \textsc{E-Congruence}:}} In this case, either $\langle e_1~|~\mu \rangle \longrightarrow \langle e_1'~|~\mu' \rangle$ or $e_1$ is a value and \mbox{$\langle e_2~|~\mu \rangle \longrightarrow \langle e_2'~|~\mu' \rangle$}. Then, the result follows from the induction hypothesis and \textsc{T-Assign}.
+
+\underline{\textit{Subcase \textsc{E-Assign}:}} In this case, both $e_1$ and $e_2$ are values, namely locations $l_1$ and $l_2$ respectively. Then, by inversion on \textsc{T-Assign}, we get that \mbox{$\Gamma~|~\Sigma \vdash l_1 : \{ \varepsilon_1 \}~\{ x \Rightarrow \overline{\sigma} \}$}, \mbox{$\keyw{var}~ f : \tau \in \overline{\sigma}$}, \mbox{$\Gamma~|~\Sigma \vdash l_2 : \{ \varepsilon_2 \}~\tau$}, and \mbox{$\varepsilon = \varepsilon_1 = \varepsilon_2 = \varnothing$}. The store changes as follows:\linebreak
+\mbox{$\mu' = [l_1 \mapsto \{ x \Rightarrow \overline{d}' \}/l_1 \mapsto \{ x \Rightarrow \overline{d} \}]\mu$}, where $\overline{d}' = [\keyw{var} f:\tau = l_2/\keyw{var} f : \tau = l]\overline{d}$. However, since \textsc{T-Store} has been applied throughout and the substituted location has the type expected by \textsc{T-Store}, the new store is well typed (as well as the old store), and thus,\linebreak
+\mbox{$\Gamma~|~\Sigma \vdash \keyw{var}~ f : \tau = l_2~:~\keyw{var}~ f : \tau$}. Then, by inversion on \textsc{DT-Varl}, we know that\linebreak
+\mbox{$\Gamma~|~\Sigma \vdash l_2 : \{ \}~\tau$} and $\varepsilon' = \varnothing$, and the right-hand side is well typed.
+\\
+
+\noindent\underline{\textit{Case \textsc{T-Sub}:}}
+The result follows directly from the induction hypothesis.
+\\
+
+\noindent Thus, the program written in this language is always well typed.
+\end{proof}
+
+
+
+\subsection{Proof of Theorem \ref{theorem-progress} (Progress)}
+\label{app-progress}
+
+
+If $\varnothing~|~\Sigma \vdash e : \{ \varepsilon \}~\tau$ (i.e., $e$ is a closed, well-typed expression), then either
+\begin{enumerate}
+\item $e$ is a value (i.e., a location) or
+\item $\forall \mu$ such that $\mu : \Sigma$,
+   $\exists e', \mu'$ such that $\langle e~|~\mu \rangle \longrightarrow \langle e'~|~\mu' \rangle$.
+\end{enumerate}
+
+\begin{proof} The proof is by induction on the derivation of $\Gamma~|~\Sigma \vdash e : \{ \varepsilon \}~\tau$, with a case analysis on the last typing rule used. The case when $e$ is a variable (\textsc{T-Var}) cannot occur, and the case when $e$ is a location (\textsc{T-Loc}) is immediate, since in that case $e$ is a value. For the other cases, we argue as follows:
+\\
+
+\noindent\underline{\textit{Case \textsc{T-New}:}}
+$e = \keywadj{new}(x \Rightarrow \overline{d})$, and by \textsc{E-New}, $e$ can make a step of evaluation if the $\keywadj{new}$ expression is closed and there is a location available that is not in the current store $\mu$. From the premise of the theorem, we know that the expression is closed, and there are infinitely many available new locations, and therefore, $e$ indeed can take a step and become a value (i.e., a location $l$). Then, the new store $\mu'$ is $\mu, l \mapsto \{ x \Rightarrow \overline{d} \}$, and all the declarations in $\overline{d}$ are mapped in the new store.
+\\
+
+\noindent\underline{\textit{Case \textsc{T-Method}:}}
+\mbox{$e = e_1.m(e_2)$}, and by the induction hypothesis applied to\linebreak
+\mbox{$\Gamma~|~\Sigma \vdash e_1 : \{ \varepsilon_1 \}~\{ x \Rightarrow \overline{\sigma} \}$}, either $e_1$ is a value or else it can make a step of evaluation, and, similarly, by the induction hypothesis applied to $\Gamma~|~\Sigma \vdash e_2 : \{ \varepsilon_2 \}~[e_1/x]\tau_2$, either $e_2$ is a value or else it can make a step of evaluation. Then, there are two subcases:
+
+\underline{\textit{Subcase $\langle e_1~|~\mu \rangle \longrightarrow \langle e_1'~|~\mu' \rangle$ or $e_1$ is a value and $\langle e_2~|~\mu \rangle \longrightarrow \langle e_2'~|~\mu' \rangle$:}} If $e_1$ can take a step or if $e_1$ is a value and $e_2$ can take a step, then rule \textsc{E-Congruence} applies to $e$, and $e$ can take a step.
+
+\underline{\textit{Subcase $e_1$ and $e_2$ are values:}} If both $e_1$ and $e_2$ are values, i.e., they are locations $l_1$ and $l_2$ respectively, then by inversion on \textsc{T-Method}, we have \mbox{$\Gamma~|~\Sigma \vdash l_1 : \{ \varepsilon_1 \}~\{ x \Rightarrow \overline{\sigma} \}$} and\linebreak
+\mbox{$\keyw{def}~ m(y : \tau_2) : \{ \varepsilon_3 \}~\tau_1 \in \overline{\sigma}$}. By inversion on \textsc{T-Loc}, we know that the store contains an appropriate mapping for the location $l_1$, and since \textsc{T-Store} has been applied throughout, the store is well typed and $l_1 \mapsto \{ x \Rightarrow \overline{d} \} \in \mu$ with $\keyw{def} m(y : \tau_1) : \{ \varepsilon_3 \}~\tau_2 = e \in \overline{d}$. Therefore, the rule \textsc{E-Method} applies to $e$, $e$ can take a step, and $\mu' = \mu$.
+\\
+
+\noindent\underline{\textit{Case \textsc{T-Field}:}}
+$e = e_1.f$, and by the induction hypothesis, either $e_1$ can make a step of evaluation or it is a value. Then, there are two subcases:
+
+\underline{\textit{Subcase $\langle e_1~|~\mu \rangle \longrightarrow \langle e_1'~|~\mu' \rangle$:}} If $e_1$ can take a step, then rule \textsc{E-Congruence} applies to $e$, and $e$ can take a step.
+
+\underline{\textit{Subcase $e_1$ is a value:}} If $e_1$ is a value, i.e., a location $l$, then by inversion on \textsc{T-Field}, we have\linebreak
+\mbox{$\Gamma~|~\Sigma \vdash l : \{ \varepsilon \}~\{ x \Rightarrow \overline{\sigma} \}$} and $\keyw{var}~ f : \tau \in \overline{\sigma}$. By inversion on \textsc{T-Loc}, we know that the store contains an appropriate mapping for the location $l$, and since \textsc{T-Store} has been applied throughout, the store is well typed and $l \mapsto \{ x \Rightarrow \overline{d} \} \in \mu$ with $\keyw{var} f : \tau = l_1 \in \overline{d}$. Therefore, the rule \textsc{E-Field} applies to $e$, $e$ can take a step, and $\mu' = \mu$.
+\\
+
+\noindent\underline{\textit{Case \textsc{T-Assign}:}}
+$e = (e_1.f = e_2)$, and by the induction hypothesis, either $e_1$ is a value or else it can make a step of evaluation, and likewise $e_2$. Then, there are two subcases:
+
+\underline{\textit{Subcase $\langle e_1~|~\mu \rangle \longrightarrow \langle e_1'~|~\mu' \rangle$ or $e_1$ is a value and $\langle e_2~|~\mu \rangle \longrightarrow \langle e_2'~|~\mu' \rangle$:}} If $e_1$ can take a step or if $e_1$ is a value and $e_2$ can take a step, then rule \textsc{E-Congruence} applies to $e$, and $e$ can take a step.
+
+\underline{\textit{Subcase $e_1$ and $e_2$ are values:}} If both $e_1$ and $e_2$ are values, i.e., they are locations $l_1$ and $l_2$ respectively, then by inversion on \textsc{T-Assign}, we have $\Gamma~|~\Sigma \vdash l_1 : \{ \varepsilon_1 \}~\{ x \Rightarrow \overline{\sigma} \}$, $\keyw{var}~ f : \tau \in \overline{\sigma}$, and $\Gamma~|~\Sigma \vdash l_2 : \{ \varepsilon_2 \}~\tau$. By inversion on \textsc{T-Loc}, we know that the store contains an appropriate mapping for the locations $l_1$ and $l_2$, and since \textsc{T-Store} has been applied throughout, the store is well typed and $l_1 \mapsto \{ x \Rightarrow \overline{d} \} \in \mu$ with $\keyw{var} f : \tau = l \in \overline{d}$. A new well-typed store can be created as follows: $\mu' = [l_1 \mapsto \{ x \Rightarrow \overline{d}' \}/l_1 \mapsto \{ x \Rightarrow \overline{d} \}]\mu$, where $\overline{d}' = [\keyw{var} f : \tau = l_2/\keyw{var} f : \tau = l]\overline{d}$. Then, the rule \textsc{E-Assign} applies to $e$, and $e$ can take a step.
+\\
+
+\noindent\underline{\textit{Case \textsc{T-Sub}:}}
+The result follows directly from the induction hypothesis.
+\\
+
+\noindent Thus, the program written in this language never gets stuck.
+\end{proof}
+
+
+
+
+
+
+
+%\section{Effect Hierarchy Case Studies} \label{hierarchy-case-studies}
+
+
