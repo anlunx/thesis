@@ -194,9 +194,13 @@ We only introduce one form of value: the existential package $\m{pack} (\varepsi
   {\langle \{\Delta\}, \m{pack} (\varepsilon, e) \m{as} \exists f.\ \tau  \rangle \mapsto \langle \{\Delta'\} , \m{pack} (\varepsilon, e') \m{as} \exists f.\ \tau  \rangle}
   {\langle \{\Delta\}, e \rangle \mapsto \langle \{\Delta'\}, e' \rangle} \\[3ex]
   
-\infer[\textsc{(E-open)}]
+\infer[\textsc{(E-open1)}]
    {\langle \{\Delta\},  \m{open} (\m{pack} (\varepsilon, e) \m{as} \exists f.\ \tau) \m{as} (f, x) \m{in} e'  \rangle \mapsto \langle \{\Delta'\}, \{[e]_j^\tau / x\}e' \rangle}
   {f \m{fresh} & j \m{fresh} & \Delta'_j = \Delta_i[f \mapsto \varepsilon] & \forall \Delta_k \in \{\Delta\}, \Delta_k' = \Delta_k[f \mapsto f]} \\[3ex]
+  
+\infer[\textsc{(E-open2)}]
+   {\langle \{\Delta\},  \m{open} e \m{as} (f, x) \m{in} e''  \rangle \mapsto \langle \{\Delta'\}, \m{open} e' \m{as} (f, x) \in e''\rangle}
+  {\langle \{\Delta\}, e \rangle \mapsto \langle \{\Delta'\}, e' \rangle} \\[3ex]
   
 \infer[\textsc{(E-EmbedPack)}]
   {\langle \{\Delta\}, [\m{pack} (\varepsilon, v) \m{as} \exists f.\ \tau]^{\exists f.\ \tau'}_j \rangle \mapsto \langle \{\Delta\}, \m{pack} (\varepsilon, [v]^{\{\varepsilon/f\}\tau'}_j) \m{as} \exists f.\ \tau' \rangle}
@@ -244,11 +248,9 @@ The reduction rules for remaining terms are not changed by the introduction of $
 The typing rules also requires the set of type maps, so the judgment have the form $\{\Delta\} \mid \Gamma \vdash e : \tau$
 (T-Pack) assigns the type $\exists f.\ \tau$ to the existential package if the expression $e$ has type $\{\varepsilon/f\}\tau$. The rule (T-Open) assigns the type $\tau'$ to the open expression if $e$ has the existential type $\exists f.\ \tau$ and $e'$ has type $\tau'$ given that the context is extended with variable $x$, and the set of type maps is extended with the effect label $f$. 
 
+Similar to the previous system, type relations ensures the correctness of the type annotation on embeddings. Since we introduced the existential type, we need to add an additional rule to the type relations:
 
-
-
-
-\subsection{Type Relation}
+$$\infer{\exists f.\ \tau \leq_l \exists f.\ \tau'}{\tau \leq_l \tau'}$$
 
 
 \subsection{Type Safety}
@@ -279,7 +281,14 @@ $\{\Delta\} \mid \Gamma, x_i : \tau  \vdash [\{[x_i]^{\tau'}_i/x_j\}c_j : \sigma
 
 \begin{lemma} (Progress)\\
 If $\{\Delta\} \mid \Gamma \vdash e : \tau$ then either $e$ is a value or there exists $e'$ and $\{\Delta'\}$ such that $\langle \{\Delta\}, e \rangle \mapsto \langle \{\Delta'\}, e' \rangle$
-\todo[inline]{TODO: Proof}
+\begin{proof}
+By induction on the typing rule:
+\begin{enumerate}[align=left]
+\item[(T-Pack)] Let $e = \m{pack} (\varepsilon, e') \m{as} \exists f. \tau$ There are two cases. If $e'$ is value, then we are done. If $e'$ is not a value, by inversion and IH, we have $\langle \{\Delta\}, e' \rangle \mapsto \langle \{\Delta'\}, e'' \rangle$. Then we can apply E-Pack to evaluate $e$.
+\item[(T-Open)] Again, let $e = \m{open} e' \m{as}(f, x) \in e''$. By IH and inversion, if $e'$ is not a value, then we can evaluate $e$ by (E-Open2). If $e'$ is a value, by inversion, $e' = \m{pack} (\varepsilon, e_1) \m{as} \exists f.\tau$. Then we can evaluate $e$ by applying (E-Open1).
+\end{enumerate}
+
+\end{proof}
 \end{lemma}
 
 \section{Discussion and Future Work}
