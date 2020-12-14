@@ -1,39 +1,23 @@
-\chapter{Background and Motivation}
 
-\section{Descriptive Effect System}
+% !TEX root = thesis.tex
 
-\noindent\textbf{Denotational vs. Descriptive Effects.}  \citet{filinski10} makes a distinction between two strands of work on effects. A \textit{denotational} approach, which includes algebraic effects, defines the semantics of computational effects based on primitives.  A \textit{restrictive} approach (e.g., Java's checked exceptions) takes effects that are already built into the language--such as reading and writing state or exceptions--and provides a way to restrict them. 
+\chapter{Background}
 
+In this chapter we introduces designs of existing restrictive effect systems and denotational effect systems and discusses their shortcomings.
 
-\noindent\textbf{Origins of Effect Systems.}  Effect Systems were originally proposed by \citet{lucassen87} to track reads and writes to memory, and then \citet{lucassen88} extended this effect system to support polymorphism.  Effects have since been used for a wide variety of purposes, including exceptions in Java~\cite{kiniry06} and asynchronous event handling~\cite{bracevac18}. \citet{turbak08} previously proposed effects as a mechanism for reasoning about security, which is the main application that we discuss.
+\label{chapter-background}
+\section{A Modular Design of Restrictive Effect Systems}
 
-
-\noindent\textbf{Prior Work on Bounded Effect Polymorphism.}  A limited form of bounded effect polymorphism were explored by~\citet{10.5555/645393.651891}, who bound effect parameters by the resources they may act on; however, the bound cannot be another aribrary effect, as in our system.  \citet{DBLP:conf/ecoop/LongLR15} use a form of bounded effect polymorphism internally but do not expose it to users of their system.
-
-\noindent\textbf{Path-Dependent Effects}
-JML's data groups~\cite{leino02} have some superficial similarities to Wyvern's effect members.  Data groups are identifiers bound in a type that refer to a collection of fields and other data groups.  They allow a form of abstract reasoning, in that clients can reason about reads and writes to the relevant state without knowing the underlying definitions.  Data groups are designed specifically to capture the modification of state, and it is not obvious how to generalize them to other forms of effects.
-
-The closest prior work on path-dependent effects, by \citet{grennhouse99}, allows programmers to declare regions as members of types; this supports a form of path-dependency in read and write effects on regions.  Our formalism expresses path-dependent effects based on the type theory of DOT~\cite{amin14}, which we find to be cleaner and easier to extend with the unique bounded abstraction features of our system.  Amin et al.'s type members can be left abstract or refined by upper or lower bounds, and were a direct inspiration for our work on bounded abstract effects.
-
-\noindent\textbf{Subeffecting.} 
-Some effect systems, such as Koka~\cite{leijen14}, provide a built-in set of effects with fixed sub-effecting relationships between them.
-\citet{rytz12} supports more flexibility via an extensible framework for effects.  Users can plug in their own domain of effects, specifying an effect lattice representing sueffecting relationships.  Each plugin is monolithic.  In contrast, our effect members allow new effects to be incrementally added and related to existing effects using declared subeffect bounds.
-
-
-
-\section{Algebraic Effects}
-\noindent\textbf{Algebraic Effects, Generativity, and Abstraction.}  Algebraic effects and handlers~\cite{plotkin03,plotkin09} are a way of implementing certain kinds of side effects such as exceptions and mutable state in an otherwise purely functional setting.  As described above, algebraic effects fall into the ``denotational'' rather than ``descriptive'' family of effects work; these lines of work are quite divergent, and it is often unclear how to translate technical ideas from one setting to the other.  However, certain papers explore parallels to our work, despite the major contextual differences.
-
-
-Bra\v{c}evac et al.~\cite{bracevac18} use algebraic effects to support asynchronous, event-based reactive programs. They need to use a different algebraic effect for each join operation that correlates events; thus, they want effects to be generative.  This generativity is at a per-module level, however, whereas our work supports per-object generativity.
-
-\citet{Zhang19} describe a design for algebraic effects that preserves abstraction in the sense of parametric functions: if a function does not statically know about an algebraic effect, that effect tunnels through that function.  This is different from our form of abstraction, in which the definition of an effect is hidden from clients.
-
-\citet{biernacki19} discuss how to abstract algebraic effects using existentials. The setting of algebraic effects makes their work quite different from ours: their abstraction hides the ``handler'' of an effect, which is a dynamic mechanism that actually implements effects such as exceptions or mutable state. In contrast, our work allows a high-level effect to be defined in terms of zero or more lower-level effects, and our abstraction mechanism allows the programmer to hide the lower-level effects that constitute the higher-level effect. Our system, unlike algebraic effect systems, is purely static. We do not attempt to implement effects, but rather give the programmer a system for reasoning about side effects on system resources and program objects. It is not clear that defining a high-level effect that encapsulates multiple low-level events is sensible in the setting of algebraic effects, since this would require merging effect implementations that could be as diverse as mutable state and exception handling. It is also not clear how Biernacki et al.'s abstraction of algebraic effects could apply to the security scenarios we examine in Section~\ref{sec:patterns}, since some of our scenarios rely critically on abstracting lower-level events as higher-level ones.
-
-\section{Wyvern Effect Basics}
 \label{sec:wyvern-effects-basics}
 
+
+Restrictive Systems were originally proposed by \citet{lucassen87} to track reads and writes to memory, and then \citet{lucassen88} extended this effect system to support polymorphism.  Effects have since been used for a wide variety of purposes, including exceptions in Java~\cite{kiniry06} and asynchronous event handling~\cite{bracevac18}. \citet{turbak08} previously proposed effects as a mechanism for reasoning about security, which is the main application that we discuss.
+
+This section describes the effect system designed by \citet{melicher20}, which introduces various effect system features such as effect members, effect abstraction, and path-dependent effects. The paper shows that the effect system lays a solid foundation for effect systems that can scale up and can deal with complexities of real-world code.
+
+
+
+\subsection{Running Example}
 \begin{figure}[t]
 \begin{lstlisting}
 resource type Logger
@@ -133,5 +117,76 @@ In Wyvern, there is a type wyvern.stdlib.support.FileIO as well as an object fil
 \end{minipage}
 
 Here, the system.FFI effect was added to the signature because this is a function that was imported via the FFI. The Wyvern file library that uses the \li{writeStringIntoFile} function abstracts this \li{system.FFI} effect into a library-specific \li{FileIO.Write} effect.
+
+
+\subsection{The Limitation of  Abstract Effects}
+
+In the current effect system, effects can be declared as members of objects. There are two possible declaration type for an effect member: An effect can be declared abstractly inside a type: In this example, effect Read is defined as a member of type Logger, the effect Read can be accessed as \texttt{v.Read} if \texttt{v} has the type \texttt{Logger}
+\begin{verbatim}
+    type Logger
+        effect Read
+\end{verbatim}
+On the other hand, effect can be also defined as a effect set that contains other effects. In the following example, any expression of type \texttt{Logger} will have a effect Read that is equivalent to \texttt{file.Read}
+\begin{verbatim}
+    type Logger
+        effect Read = { file.Read }
+\end{verbatim}
+The former type definition for Logger is useful when the programmer wants to hide the definition of the effect Read, while the second type allows the Read effect and \texttt{file.Read} to be used interchangeably. However, there is no way for a programmer to have these two benefits at once: the effect Read in Logger is either completely opaque, or completely equivalent to some other effect set.
+
+
+
+
+
+\section{Algebraic Effects and Handlers}
+
+\subsection{Overview}
+  Algebraic effects and handlers~\cite{plotkin03,plotkin09} are a way of implementing certain kinds of side effects such as exceptions and mutable state in an otherwise purely functional setting.  As described above, algebraic effects fall into the ``denotational'' rather than ``descriptive'' family of work on effects. 
+  
+Algebraic effects introduce the notion of operations, which carry no predefined meaning. The interpretation for each operation is provided by the evaluation context. In most systems with algebraic effects and handlers, operations are tracked by an effect system, which is similar to the way effectful methods are tracked in the Wyvern programming language. Comparing to restrictive effect systems, algebraic effects subsumes multiple control-flow constructs, and can restore the purity of programs by handling effect operations.
+
+Exceptions are an example of control-flow constructs that are subsumed by algebraic effects. Assume that an algebraic effect \li{exc} is defined with one operation \li{raise}:
+\begin{verbatim}
+effect exc = {
+  raise : String -> a
+}
+\end{verbatim}
+Then the operation \li{raise} can be used to implement programs that might cause exceptions. For example, we can write a division function that raise an exception when the divisor is 0.
+\begin{verbatim}
+def div(x : Int, y : Int) : {exc} Int
+  if (y == 0)
+    raise("divide by zero")
+  else
+    x / y
+\end{verbatim}
+
+The type of function \li{div} is $Int \times Int \rightarrow \{exc\}\ Int$. The $\{exc\}$ annotation indicates that the function might cause the $exc$ effect by invoking its operation. Because the meaning of operations is undefined, we need to use a handler to define semantics for effect operations. For this example, we define a handler that returns 0 whenever an error is rased
+
+\begin{verbatim}
+	handle 
+	  div(1, 0)
+	with 
+	| return x -> x
+	| raise s -> 0
+\end{verbatim}
+
+In the return clause, the variable $x$ is bound to the result of the computation if no operation is invoked. So in this case the whole handled expression would evaluate to $x$. In the \li{raise} clause, the handler decides to evaluate the expression to 0 when an exception is raised. 
+
+Another useful property of algebraic effects and handlers is the ability to resume the computation, consider the following handled expression that invokes the function \li{div} twice.
+
+\begin{verbatim}
+	handle 
+	  div(1, 0) + div(2, 1)
+	with 
+	| return x -> x
+	| raise s -> resume 3
+\end{verbatim}
+
+The \li{raise} clause of the handler is \li{resume\ 3} , which tells the program to continue evaluate but use 3 as the result of the operation. So the final result for the whole expression is 5. This example shows the algebraic effects a more structured form of delimited continuations. 
+
+\subsection{Effect Abstraction}
+Similar to the restrictive effect system, algebraic effects also benefit from the ability to declare abstract effects. However, this problem is not studied as thoroughly as the effect abstraction in the restrictive setting. The abstraction for algebraic effects was originally proposed by \citet{leijen18}, but was not developed theoretically. The work by \citet{biernacki19} first studied the abstract algebraic effects formally, and proposed a formalization based on coercions.
+
+
+
 
 

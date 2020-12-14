@@ -1,10 +1,12 @@
+% !TEX root = thesis.tex
+
 \chapter{Bounded Abstract Effects}
 \label{chapter-bound}
 
 \section{Effect Bounds}
 \label{sec-bound}
 
-Our effect system also gives the programmer the ability to define a subtyping hierarchy of effects via effect bounds. To define the hierarchy, the programmer gives the effect member an upper bound or a lower bound, hiding the definition of the effect from the client.
+Our effect system  gives the programmer the ability to define a subtyping hierarchy of effects via effect bounds. To define the hierarchy, the programmer gives the effect member an upper bound or a lower bound, hiding the definition of the effect from the client.
 
 For example, consider the type \li{BoundedLogger} which has the same method declarations and effect members as the type \li{Logger} in Fig.~\ref{f-logger}, except the \li{ReadLog} and \li{UpdateLog} effects are upper-bounded by the corresponding effects in the \li{fileSystem} module:
 

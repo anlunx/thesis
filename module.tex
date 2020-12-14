@@ -1,6 +1,6 @@
 % !TEX root = thesis.tex
 
-\chapter{Algebraic Effects with Module Systems}
+\chapter{Algebraic Effects with Existential Types}
 \section{Motivation}
 In section \ref{sec-state}, we defined a resource type \m{Var} that provides two public functions, \m{get} and \m{set}, that are annotated with effects, but the concrete implementation that causes effects are not revealed to the client. This construct ensures that any program that accesses to a value of type \m{Var} is annotated with the correct effect. Therefore we can see that, in a restrictive effect system, it is useful to be able to hide the implementation of a computational effect.  
 
