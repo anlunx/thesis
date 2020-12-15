@@ -45,6 +45,47 @@ The last segment of the above example shows an client code of module \li{m} that
 
 As we can see, the abstraction of effect signatures from type abstractions, since the erasure of type information would make the abstraction unsound. So we need a language that keep track of the information on effect abstraction during the evaluation of the program. In this work, we incorporate the method of syntactic type abstraction introduced by \citet{grossman00}, who use the notion of principals to track the flow of values with abstract types during the evaluation of a program. 
 
+\section{A Simple Example of an Agent-based Language}
+Consider the simple case where we only have two agents, namely the client \li{c}, and the host \li{h}. And the host \li{h} defines an abstract effect \li{E}, export a method that cause the effect and a method that handles the effect.
+\begin{lstlisting}[mathescape=true]
+module h = 
+  effect E = ...
+  val m : 1 -> {E} 1 = ..
+  ...
+\end{lstlisting}
+
+Now consider a client code wants to handle the \li{m} function from h\\
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[mathescape=true]
+handle 
+  [m ()]$_h^E$
+with
+  op (x) -> ...
+  return x -> ...
+\end{lstlisting}
+\end{minipage}
+
+Since $m$ function is called in the client code, we use a language construct called embedding to encapsulate the function call. This subscript of the embedding indicates that the code inside the embedding is a host code, and the superscript indicate that the effect of the code is \li{E}, which is abstract to the client. So the embedding ensures that the client would not be able to handle the operation inside the function \li{m}, therefore keeping the effect abstraction safe. 
+
+Besides making the client unable to handle an abstract effect, we need to make sure that a host code can "rediscover" the effect exported by itself. The scenario would be exhibited by the following host code. The client code we showed earlier is now embedded into another handler that handles the the effect E. Because the otter-most handler is now in a host code, it would be able to handle the effect operation inside the function \li{m}.
+
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[mathescape=true]
+handle 
+  [handle 
+    [m ()]$_h^E$
+  with
+    op (x) -> ...
+    return x -> ...]$_c^E$
+with
+  op (x) -> ...
+  return x -> ...
+\end{lstlisting}
+\end{minipage}
+
+
+
+
 \section{Core Calculus}
 \label{sec-core}
 \subsection{Syntax}
@@ -346,7 +387,7 @@ The (E-Embed4) rule is very similar to (E-Embed3) with one difference being that
   
 \infer[\textsc{(T-EmbedOp)}]
   {\Gamma\vdash [op]^\varepsilon_l(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau }
-  {\Sigma(op) = \tau_A \rightarrow \tau_B & \Gamma \vdash e_i : \tau_A & \Gamma. y_i:\tau_B\vdash c_i: \{\varepsilon'\}\tau & \overline{\Delta_i}(\varepsilon) \subseteq \overline{\Delta_i}(\varepsilon') & \Gamma \vdash op \leq_{li} \varepsilon} \\[3ex]
+  {\Sigma(op) = \tau_A \rightarrow \tau_B & \Gamma \vdash e_i : \tau_A & \Gamma,y_i:\tau_B\vdash c_i: \{\varepsilon'\}\tau & \overline{\Delta_i}(\varepsilon) \subseteq \overline{\Delta_i}(\varepsilon') & \Gamma \vdash op \leq_{li} \varepsilon} \\[3ex]
   
 \end{array} \\[3ex]
 \]
@@ -749,7 +790,7 @@ $\fbox{$h \approx h$}$
 
 
 }
-\caption{Definition of $\approx_{op, op'}$}
+\caption{Definition of $\approx$}
 \end{figure}
 
 
@@ -797,12 +838,12 @@ In this section we show an example of the process of evaluation of the example p
 op : 1 -> 1
   
 module b: B
-  f = op
+  effect f = op
   def m() : {f} Unit
     op ()
   def handler(c: 1 -> {f} 1) : {} Int = 
     handle c () with
-    |  op () -> 1
+    | op () -> 1
     | return _ -> 0
 \end{lstlisting}
 

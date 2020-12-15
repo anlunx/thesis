@@ -12,13 +12,13 @@ For example, consider the type \li{BoundedLogger} which has the same method decl
 
 \begin{minipage}{\linewidth}
 \begin{lstlisting}[xleftmargin=-5pt, numbers=none]
-resource type BoundedLogger
+type BoundedLogger
    effect ReadLog <= {fileSystem.Read}
    effect UpdateLog <= {fileSystem.Append}
-   ... // same as in the type Logger in Fig. 2
+   ...
 \end{lstlisting}
 \end{minipage}
-Any object implementing type \li{BoundedLogger} may have an effect member \li{ReadLog} which is \textit{at most} \li{fileSystem.Read}. This allows programmers to compare the \li{ReadLog} effect with other effects, while keeping its definition abstract. For instance, a library can provide two implementations of \li{BoundedLogger}, including an effectless logger in which the effects \li{ReadLog} and \li{UpdateLog} are empty sets, and an effectful logger in which \li{ReadLog} and \li{UpdateLog} are defined as effects in the \li{fileSystem} module. The library's clients then can annotate the effects of both implementations with \li{fileSystem.Read} and \li{fileSystem.Append} according to the effect hierarchy, without the need to know the exact implementation of the two instances.
+Any object implementing the type \li{BoundedLogger} may have an effect member \li{ReadLog} which is \textit{at most} \li{fileSystem.Read}. This allows programmers to compare the \li{ReadLog} effect with other effects, while keeping its definition abstract. For instance, a library can provide two implementations of \li{BoundedLogger}, including an effectless logger in which the effects \li{ReadLog} and \li{UpdateLog} are empty sets, and an effectful logger in which \li{ReadLog} and \li{UpdateLog} are defined as effects in the \li{fileSystem} module. The library's clients then can annotate the effects of both implementations with \li{fileSystem.Read} and \li{fileSystem.Append} according to the effect hierarchy, without the need to know the exact implementation of the two instances.
 
 Effect hierarchy can also be constructed using lower bounds. For example, consider the following type for I/O modules that supports writes:
 
@@ -37,7 +37,7 @@ The following two case studies  demonstrates the expressiveness of the effect hi
 
 \subsection{Controlling Access to UI Objects}
 
-This main idea of the work of \cite{gordon13} is to control the access of user interface (UI) framework methods so that unsafe UI methods can only be called on the UI thread. There are three different method annotations \li{@SafeEffect}, \li{@UIEffect}, and \li{@PolyUIEffect}, where
+This main idea of the work of \citet{gordon13} is to control the access of user interface (UI) framework methods so that unsafe UI methods can only be called on the UI thread. There are three different method annotations \li{@SafeEffect}, \li{@UIEffect}, and \li{@PolyUIEffect}, where
 \begin{enumerate}
     \item \li{@SafeEffect} annotates methods that are safe to run on any thread,
     \item \li{@UIEffect} annotates methods that is only callable on UI thread, and
@@ -58,7 +58,7 @@ An interface could be used for UI-effectful or UI-safe work. To accommodate such
 \begin{lstlisting}[numbers=none]
 @PolyUIType public interface Runnable {
   @PolyUIEffect void Run();
-    }
+}
 \end{lstlisting}
 
 Whether the method \li{Run()} will have a UI effect depends on an annotation when the type is instantiated. For example:
@@ -87,7 +87,7 @@ This indicates that \li{run} is safe to be called on any thread.
 \subsection{Controlling Mutable States Using Abstract Regions}
 \label{sec-state}
 
-\cite{grennhouse99} proposed a region-based effect system which describes how state may be accessed during the execution of some program component in object-oriented programming languages. One example of the usage of regions is as follows:
+\citet{grennhouse99} proposed a region-based effect system which describes how state may be accessed during the execution of some program component in object-oriented programming languages. One example of the usage of regions is as follows:
 \begin{lstlisting}[numbers=none]
 class Point {
   public region Position;
