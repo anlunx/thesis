@@ -27,16 +27,16 @@ resource type Logger
    def updateLog(newEntry: String): {this.UpdateLog} Unit
 
 module def logger(f: File): Logger
-effect ReadLog = {f.Read}
-effect UpdateLog = {f.Append}
-def readLog(): {ReadLog} String = f.read()
-def updateLog(newEntry: String): {UpdateLog} Unit = f.append(newEntry)
+	effect ReadLog = {f.Read}
+	effect UpdateLog = {f.Append}
+	def readLog(): {this.ReadLog} String = f.read()
+	def updateLog(newEntry: String): {this.UpdateLog} Unit = f.append(newEntry)
 \end{lstlisting}
 \caption{A type and a module implementing the logging facility in the text-editor application.}
 \label{f-logger}
 \end{figure}
 
-Consider the code in Fig.~\ref{f-logger} that shows a type and a module implementing the logging facility of the text-editor application.  In the given implementation of the \li{Logger} type, the \li{logger} module accesses the log file.\footnote{The keyword \li{resource} in the type definition indicates that the implementations of this type may have state and may access system resources; this is orthogonal to effect checking.} All modules of type \li{Logger} must have two methods: the \li{readLog} method that returns the content of the log file and the \li{updateLog} method that appends new entries to the log file. In addition, the \li{Logger} type declares two \textit{abstract} effects, \li{ReadLog} and \li{UpdateLog}, that are produced by the corresponding methods. These effects are abstract because they are not given a definition in the \li{Logger} type, and so it is up to the module implementing the \li{Logger} type to define what they mean. The effect names are user-defined, allowing the choice of meaningful names.
+Consider the code in Fig.~\ref{f-logger} that shows a type and a module implementing the logging facility of the text editor application.  In the given implementation of the \li{Logger} type, the \li{logger} module accesses the log file.\footnote{The keyword \li{resource} in the type definition indicates that the implementations of this type may have state and may access system resources; this is orthogonal to effect checking.} All modules of type \li{Logger} must have two methods: the \li{readLog} method that returns the content of the log file and the \li{updateLog} method that appends new entries to the log file. In addition, the \li{Logger} type declares two \textit{abstract} effects, \li{ReadLog} and \li{UpdateLog}, that are produced by the corresponding methods. These effects are abstract because they are not given a definition in the \li{Logger} type, and so it is up to the module implementing the \li{Logger} type to define what they mean. The effect names are user-defined, allowing the choice of meaningful names.
 
 \begin{figure}[t]
 \begin{lstlisting}
@@ -59,7 +59,7 @@ The \li{logger} module implements the \li{Logger} type. To access the file syste
 
 \subsection{Path-dependent Effects}
 
-Effects are members of objects\footnote{Modules are an important special case of objects}, so we refer to them with the form \li{variable.EffectName}, where \li{variable} is a reference to the object defining the effect and \li{EffectName} is the name of the effect. For example, in the definition of the \li{ReadLog} effect of the \li{logger} module, \li{f} is the variable referring to a specific file and \li{Read} is the effect that the \li{read} method of \li{f} produces. This conveniently ties together the resource and the effects produced on it (which represent the operations performed on it), helping a software architect or a security analyst to reason about how resources are used by any particular module and its methods. For example, when analyzing the effects produced by \li{logger}'s \li{readLog} method, a security analyst can quickly deduce that calling that method affects the file resource and, specifically, the file is read, simply by looking at the \li{Logger} type and \li{logger}'s effect definitions but not at the method's code. Furthermore, these properties can be automatically checked with an idiom of use: In addition to directly looking at the effect annotation of the method of the logger module, the security analyst may write client code that specify the effect that the logger module is allowed to have. If the logger module accesses system resources outside of the specified effect set, then the compiler would automatically reject the program.
+Effects are members of objects,\footnote{Modules are an important special case of objects} so we refer to them with the form \li{variable.EffectName}, where \li{variable} is an immutable reference to the object defining the effect and \li{EffectName} is the name of the effect. For example, in the definition of the \li{ReadLog} effect of the \li{logger} module, \li{f} is the variable referring to a specific file and \li{Read} is the effect that the \li{read} method of \li{f} produces. This conveniently ties together the resource and the effects produced on it (which represent the operations performed on it), helping a software architect or a security analyst to reason about how resources are used by any particular module and its methods. For example, when analyzing the effects produced by \li{logger}'s \li{readLog} method, a security analyst can quickly deduce that calling that method affects the file resource and, specifically, the file is read, simply by looking at the \li{Logger} type and \li{logger}'s effect definitions but not at the method's code. Furthermore, these properties can be automatically checked with an idiom of use: In addition to directly looking at the effect annotation of the method of the logger module, the security analyst may write client code that specify the effect that the logger module is allowed to have. If the logger module accesses system resources outside of the specified effect set, then the compiler would automatically reject the program.
 
 Because an effect includes a reference to an object instance, our effect system can distinguish reads and writes on different file instances. If the developer does not want this level of precision, it is still possible to declare effects at the module level (i.e., as members of a \li{fileSystem} module object instance), and to share the same \li{Read} and \li{Write} effects (for example) across all files in \li{fileSystem}.
 
@@ -181,10 +181,13 @@ Another useful property of algebraic effects and handlers is the ability to resu
 	| raise s -> resume 3
 \end{verbatim}
 
-The \li{raise} clause of the handler is \li{resume\ 3} , which tells the program to continue evaluate but use 3 as the result of the operation. So the final result for the whole expression is 5. This example shows the algebraic effects a more structured form of delimited continuations. 
+The \li{raise} clause of the handler is \li{resume\ 3} , which tells the program to continue evaluate but use 3 as the result of the operation. So the final result for the whole expression is 5. This example shows algebraic effects are a more structured form of delimited continuations. 
 
 \subsection{Effect Abstraction}
-Similar to the restrictive effect system, algebraic effects also benefit from the ability to declare abstract effects. However, this problem is not studied as thoroughly as the effect abstraction in the restrictive setting. The abstraction for algebraic effects was originally proposed by \citet{leijen18}, but was not developed theoretically. The work by \citet{biernacki19} first studied the abstract algebraic effects formally, and proposed a formalization based on coercions.
+Similar to the restrictive effect system, algebraic effects also benefit from the ability to declare abstract effects. However, this problem is not studied as thoroughly as the effect abstraction in the restrictive setting. The abstraction for algebraic effects was originally proposed by \citet{leijen18}, but was not developed theoretically. The work by \citet{biernacki19} first studied the abstract algebraic effects formally, and proposed a formalization based on coercions. The relationship between \citet{biernacki}'s work and ours is discussed more in section \ref{related-abstract}
+
+
+
 
 
 
