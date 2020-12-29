@@ -1,10 +1,10 @@
 % !TEX root = thesis.tex
 \pagebreak
 
+
 \appendix
-
-\section{Proof of Theorem \ref{theorem-transitivity} (Transitivity of Subtyping)}
-
+\chapter{Proof of Theorem \ref{theorem-transitivity} (Transitivity of Subtyping)}
+\section{Lemmas}
 \begin{lemma}
 If $\Gamma, x : \tau \vdash \varepsilon_1 <: \varepsilon_2$, and $\Gamma \vdash \tau' <: \tau$, then $\Gamma, x : \tau' \vdash \varepsilon_1 <: \varepsilon_2$.
 \begin{proof}
@@ -38,7 +38,7 @@ We induct on the number of S-Alg used to derive the typing judgment in the premi
 
 
 
-\subsubsection{Proof of theorem \ref{theorem-transitivity}}
+\section{Proof of theorem \ref{theorem-transitivity}}
 If $\Gamma \vdash \tau_1 <: \tau_2$ and $\Gamma \vdash \tau_2 <: \tau_3$, then $\Gamma \vdash \tau_1 <: \tau_3$. \\
 If $\Gamma \vdash \sigma_1 <: \sigma_2$ and $\Gamma \vdash \sigma_2 <: \sigma_3$, then $\Gamma \vdash \sigma_1 <: \sigma_3$. 
 \begin{proof}
@@ -62,11 +62,10 @@ $\Gamma \vdash \keyw{def} m(x : \tau_2) : \{ \varepsilon_2 \}~\tau_2' <: \keyw{d
 \end{proof}
 
 
-
-\section{Proof of the Type Soundness Theorems}
+\chapter{Proofs of the Type Soundness Theorems for Bounded Abstract Effects}
 \label{app-effects-type-soundness}
 
-\subsection{Lemmas}
+\section{Lemmas}
 
 %\begin{lemma}[Permutation]
 %If \mbox{$\Gamma~|~\varnothing \vdash e : \{ \varepsilon \}~\tau$} and $\Delta$ is a permutation of $\Gamma$, then\linebreak
@@ -522,7 +521,7 @@ and the effect declaration of $g_j$ is in $\overline{\sigma_i}$. So we have $[l/
 \end{proof}
 
 
-\subsection{Proof of Theorem \ref{theorem-preservation} (Preservation)}
+\section{Proof of Theorem \ref{theorem-preservation} (Preservation)}
 \label{app-preservation}
 
 
@@ -579,7 +578,7 @@ The result follows directly from the induction hypothesis.
 
 
 
-\subsection{Proof of Theorem \ref{theorem-progress} (Progress)}
+\section{Proof of Theorem \ref{theorem-progress} (Progress)}
 \label{app-progress}
 
 

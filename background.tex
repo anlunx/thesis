@@ -36,7 +36,7 @@ module def logger(f: File): Logger
 \label{f-logger}
 \end{figure}
 
-Consider the code in Fig.~\ref{f-logger} that shows a type and a module implementing the logging facility of the text editor application.  In the given implementation of the \li{Logger} type, the \li{logger} module accesses the log file.\footnote{The keyword \li{resource} in the type definition indicates that the implementations of this type may have state and may access system resources; this is orthogonal to effect checking.} All modules of type \li{Logger} must have two methods: the \li{readLog} method that returns the content of the log file and the \li{updateLog} method that appends new entries to the log file. In addition, the \li{Logger} type declares two \textit{abstract} effects, \li{ReadLog} and \li{UpdateLog}, that are produced by the corresponding methods. These effects are abstract because they are not given a definition in the \li{Logger} type, and so it is up to the module implementing the \li{Logger} type to define what they mean. The effect names are user-defined, allowing the choice of meaningful names.
+Consider the code in Fig.~\ref{f-logger} that shows a type and a module implementing the logging facility of a text editor application.  In the given implementation of the \li{Logger} type, the \li{logger} module accesses the log file.\footnote{The keyword \li{resource} in the type definition indicates that the implementations of this type may have state and may access system resources; this is orthogonal to effect checking.} All modules of type \li{Logger} must have two methods: the \li{readLog} method that returns the content of the log file and the \li{updateLog} method that appends new entries to the log file. In addition, the \li{Logger} type declares two \textit{abstract} effects, \li{ReadLog} and \li{UpdateLog}, that are produced by the corresponding methods. These effects are abstract because they are not given a definition in the \li{Logger} type, and so it is up to the module implementing the \li{Logger} type to define what they mean. The effect names are user-defined, allowing the choice of meaningful names.
 
 \begin{figure}[t]
 \begin{lstlisting}
@@ -121,12 +121,12 @@ Here, the system.FFI effect was added to the signature because this is a functio
 
 \subsection{The Limitation of  Abstract Effects}
 
-In the current effect system, effects can be declared as members of objects. There are two possible declaration type for an effect member: An effect can be declared abstractly inside a type: In this example, effect Read is defined as a member of type Logger, the effect Read can be accessed as \texttt{v.Read} if \texttt{v} has the type \texttt{Logger}
+In the Wyvern effect system, effects can be declared as members of objects. There are two possible declaration type for an effect member: An effect can be declared abstractly inside a type: In this example, effect Read is defined as a member of type Logger, the effect Read can be accessed as \texttt{v.Read} if \texttt{v} has the type \texttt{Logger}
 \begin{verbatim}
     type Logger
         effect Read
 \end{verbatim}
-On the other hand, effect can be also defined as a effect set that contains other effects. In the following example, any expression of type \texttt{Logger} will have a effect Read that is equivalent to \texttt{file.Read}
+On the other hand, effect can be also defined as a effect set that contains other effects. In the following example, any expression of type \texttt{Logger} will have a effect Read that is equivalent to \texttt{file.Read}.
 \begin{verbatim}
     type Logger
         effect Read = { file.Read }
@@ -159,7 +159,7 @@ def div(x : Int, y : Int) : {exc} Int
     x / y
 \end{verbatim}
 
-The type of function \li{div} is $Int \times Int \rightarrow \{exc\}\ Int$. The $\{exc\}$ annotation indicates that the function might cause the $exc$ effect by invoking its operation. Because the meaning of operations is undefined, we need to use a handler to define semantics for effect operations. For this example, we define a handler that returns 0 whenever an error is rased
+The type of function \li{div} is $Int \times Int \rightarrow \{exc\}\ Int$. The $\{exc\}$ annotation indicates that the function might cause the $exc$ effect by invoking its operation. Because the meaning of operations is undefined, we need to use a handler to define semantics for effect operations. For this example, we define a handler that returns 0 whenever an error is raised.
 
 \begin{verbatim}
 	handle 
@@ -169,7 +169,7 @@ The type of function \li{div} is $Int \times Int \rightarrow \{exc\}\ Int$. The 
 	| raise s -> 0
 \end{verbatim}
 
-In the return clause, the variable $x$ is bound to the result of the computation if no operation is invoked. So in this case the whole handled expression would evaluate to $x$. In the \li{raise} clause, the handler decides to evaluate the expression to 0 when an exception is raised. 
+In the return clause, the variable $x$ is bound to the result of the computation if no operation is invoked. So in this case the whole handled expression would evaluate to $x$. In the \li{raise} clause, the handler evaluates the whole expression to 0 when an exception is raised. 
 
 Another useful property of algebraic effects and handlers is the ability to resume the computation, consider the following handled expression that invokes the function \li{div} twice.
 
@@ -181,10 +181,10 @@ Another useful property of algebraic effects and handlers is the ability to resu
 	| raise s -> resume 3
 \end{verbatim}
 
-The \li{raise} clause of the handler is \li{resume\ 3} , which tells the program to continue evaluate but use 3 as the result of the operation. So the final result for the whole expression is 5. This example shows algebraic effects are a more structured form of delimited continuations. 
+The \li{raise} clause of the handler is \li{resume\ 3} , which tells the program to continue evaluation but use 3 as the result of the operation. So the final result for the whole expression is 5. This example shows that algebraic effects are a more structured form of delimited continuations. 
 
 \subsection{Effect Abstraction}
-Similar to the restrictive effect system, algebraic effects also benefit from the ability to declare abstract effects. However, this problem is not studied as thoroughly as the effect abstraction in the restrictive setting. The abstraction for algebraic effects was originally proposed by \citet{leijen18}, but was not developed theoretically. The work by \citet{biernacki19} first studied the abstract algebraic effects formally, and proposed a formalization based on coercions. The relationship between \citet{biernacki}'s work and ours is discussed more in section \ref{related-abstract}
+Similar to the restrictive effect system, algebraic effects also benefit from the ability to declare abstract effects. However, this problem is not studied as thoroughly as the effect abstraction in the restrictive setting. The abstraction for algebraic effects was originally proposed by \citet{leijen18}, but was not developed theoretically. The work by \citet{biernacki19} first studied the abstract algebraic effects formally, and proposed a formalization based on coercions. The relationship between \citet{biernacki19}'s work and ours is discussed more in section \ref{related-abstract}
 
 
 

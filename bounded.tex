@@ -3,6 +3,20 @@
 \chapter{Bounded Abstract Effects}
 \label{chapter-bound}
 
+\section{Intuition for Subeffecting}
+Subtyping is used by many programming languages as a mean for making the type system for flexible. The normal intuition of subtyping is that if every value described by the type \li{S} is also described by \li{T}, then \li{S <: T}. The subtyping relation is also often interpreted as a subset relation, that is, if \li{S <: T}, then the elements of \li{S} are a subset of the elements of \li{T}. Type systems incorporates subtyping relation by adding the rule of subsumption:
+$$\infer{\Gamma \vdash t : T}{\Gamma \vdash t : S & S <: T}$$
+Which states that if a term \li{t} belongs to a type \li{S}, and \li{S} is a subtype if \li{T}, then \li{t} can be used as a value of type \li{T}.
+
+There is a natural way to incorporate the interpretation of subtyping into the Wyvern effect system. Since the effect system describes the set of side effects a program can possibly cause, if one effect \li{E} is a subset of another effect \li{F}, then it is safe to use a term that has effect \li{E} whenever a term of effect \li{F} is expected. We therefore consider the effect \li{E} as a subeffect of the effect \li{F}, due to their similarity to subtyping. To give a concrete example, consider an declaration of a method \li{readFromNetwork}:\\
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[xleftmargin=10pt, numbers=none]
+def readFromNetwork() : {network.Read, file.Write} Unit = writeFile()
+def writeFile() : {file.Write} Unit = file.Write{"something"}
+\end{lstlisting}
+\end{minipage}
+The \li{readFromNetwork} method has an effect that consists of two effect labels, \li{network.Read} and \li{file.Write}, and is implemented by calling \li{writeFile} method, which only has the \li{file.Write} effect. Because the effect of \li{writeFile} method is a subset of the effect of \li{readFromNetwork}, it can be safely used as an implementation of \li{readFromNetwork}.
+
 \section{Effect Bounds}
 \label{sec-bound}
 
@@ -31,7 +45,7 @@ type IO
 \end{minipage}
 Since I/O is done using the foreign function interface (FFI), the \li{Write} effect is \textit{at least} the \li{system.FFI} effect. Similar to providing an upper bounded on effects, this type does not specify the exact definition of the \li{Write} effect, and implementations of this type can define \li{Write} as an effect set with more effects than \li{\{system.FFI\}}.
 
-The effect hierarchy achieved by bounding effect members is supported by the subtyping relations of our effect system (Sections~\ref{sec-subeffecting} and \ref{sec-effects-subtyping}). If a type has an effect member with more strict bounds than another type, then the former type is a subtype of the latter type. For example, when a logger with the effect member \li{Read <= \{fileSystem.Read\}} is expected, we can pass in a logger with \li{Read = \{\}} because the definition as an empty set is more strict than an upper bound.
+The effect hierarchy achieved by bounding effect members is supported by the subtyping relations of our effect system (Sections~\ref{sec-subeffecting}). If a type has an effect member with more strict bounds than another type, then the former type is a subtype of the latter type. For example, when a logger with the effect member \li{Read <= \{fileSystem.Read\}} is expected, we can pass in a logger with \li{Read = \{\}} because the definition as an empty set is more strict than an upper bound.
 
 The following two case studies  demonstrates the expressiveness of the effect hierarchy:
 
@@ -337,7 +351,7 @@ $\fbox{$\Gamma \vdash safe(x.g, \varepsilon)$}$
 \end{figure}
 
 
-Since Wyvern's effects are defined in terms of variables, before we type check expressions, we must make sure that effects and types are well formed. Wyvern well-formedness rules are mostly straightforward and are shown in Fig.~\ref{f-well-formedness}. The three judgements read that, in the variable typing context $\Gamma$, the type $\tau$, the declaration type $\sigma$, and the effect set $\varepsilon$ are well formed, respectively.
+Since Wyvern's effects are defined in terms of variables, before we typecheck expressions, we must make sure that effects and types are well formed. Wyvern well-formedness rules are mostly straightforward and are shown in Fig.~\ref{f-well-formedness}. The three judgements read that, in the variable typing context $\Gamma$, the type $\tau$, the declaration type $\sigma$, and the effect set $\varepsilon$ are well formed, respectively.
 
 An object type is well formed if all of its declaration types are well formed. A method-declaration type is well formed if the type of its parameter, its return type, and the effects in its effect annotation are well formed. A field-declaration type is well formed if its type is well formed. Since an effect-declaration type has no right-hand side, it is trivially well formed. An effect-definition type is well formed if the effect set in its right-hand side is well formed. Finally, a bounded effect declaration is well formed if the upper bound or lower bound on the right-hand side is well formed. An effect set is well formed if, for every effect it contains, the definition of the effect doesn't form a cycle, the variable in the first part of the effect is well typed and the type of that variable contains either an effect-declaration or an effect-definition type, in which the effect name matches the effect name in the second part of the effect.
 
@@ -489,7 +503,7 @@ A field declaration is trivially well typed, and an effect declaration is well t
 \end{figure}
 
 
-As we already saw in the \textsc{T-Sub}, and \textsc{DT-Def} rules above and as we will see more in the upcoming Section~\ref{sec-effects-subtyping}, to compare two sets of effects, we use subeffecting rules, which are presented in Fig.~\ref{f-subeffecting}. If an effect is a subset of another effect, then the former effect is a subeffect of the latter (\textsc{Subeffect-Subset}). If an effect set contains an effect variable that is declared with an upper bound, and the union of the rest of the effect set with the upper bound is a subeffect of another effect set, then the former effect set is a subeffect of the latter effect set (\textsc{Subeffect-Lowerbound}). If an effect set contains an effect variable that is declared with an lower bound, and the union of the rest of the effect set with the lower bound is a supereffect of another effect set, then the former effect set is a supereffect of the latter (\textsc{Subeffect-Lowerbound}). If an effect set contains an effect variable that has a definition, and the union of the rest of the effect set with the definition of the variable is a supereffect of another effect set, then the former effect set is a supereffect of the latter (\textsc{Subeffect-Def-1}). Finally, if an effect set contains an effect variable that has a definition, and the union of the rest of the effect set with the definition of the variable is a subeffect of another effect set, then the former effect set is a subeffect of the latter  (\textsc{Subeffect-Def-2}).
+As we already saw in the \textsc{T-Sub}, and \textsc{DT-Def} rules above, to compare two sets of effects, we use subeffecting rules, which are presented in Fig.~\ref{f-subeffecting}. If an effect is a subset of another effect, then the former effect is a subeffect of the latter (\textsc{Subeffect-Subset}). If an effect set contains an effect variable that is declared with an upper bound, and the union of the rest of the effect set with the upper bound is a subeffect of another effect set, then the former effect set is a subeffect of the latter effect set (\textsc{Subeffect-Lowerbound}). If an effect set contains an effect variable that is declared with an lower bound, and the union of the rest of the effect set with the lower bound is a supereffect of another effect set, then the former effect set is a supereffect of the latter (\textsc{Subeffect-Lowerbound}). If an effect set contains an effect variable that has a definition, and the union of the rest of the effect set with the definition of the variable is a supereffect of another effect set, then the former effect set is a supereffect of the latter (\textsc{Subeffect-Def-1}). Finally, if an effect set contains an effect variable that has a definition, and the union of the rest of the effect set with the definition of the variable is a subeffect of another effect set, then the former effect set is a subeffect of the latter  (\textsc{Subeffect-Def-2}).
 
 \begin{lemma} $size(\Gamma, \varepsilon)$ (Defined in Fig. \ref{f-size}) is finite.
 \begin{proof}
@@ -511,7 +525,6 @@ The inductive step for rules Subeffect-Lowerbound, Subeffect-Def-1, and Subeffec
 \end{lemma}
 
 \subsubsection{Declarative Subtyping Rules}
-\label{sec-effects-subtyping}
 
 \begin{figure}[!t]
 \flushleft
@@ -610,7 +623,7 @@ $\fbox{$\Gamma \vdash \tau <: \tau'$}$
 \caption{Algorithmic Subtyping}
 \end{figure}
 
-The S-Alg rule encodes the S-Refl-1, S-Perm, S-Depth, and S-Width rule using an injective function $p$. The subtyping rules of declaration types are identical to the declarative subtyping. We prove that S-Trans rules is emissible in theorem \ref{theorem-transitivity}. 
+The S-Alg rule encodes the S-Refl-1, S-Perm, S-Depth, and S-Width rule using an injective function $p$. The subtyping rules of declaration types are identical to the declarative subtyping. We prove that S-Trans rules is admissible in theorem \ref{theorem-transitivity}. 
 Since subtyping rules object types and declaration types are syntax-directed, the subtyping of our effect system is decidable.
 
 \begin{theorem} (Transitivity of algorithmic subtyping)\\
