@@ -8,13 +8,13 @@
 
 Algebraic effects (introduced by \citet{plotkin02}) and handlers (introduced by \citet{plotkin09}) are an approach to computational effects based on a premise that impure behavior arises from a set of operations, and are recently gaining popularity due to their ability to model various form of computational effects such as exceptions, mutable states, async-await, etc.
 
-Modularity is a key concept that separates abstract algebraic effects from the traditional way of using monad to model effects in purely functional programming \cite{schrijvers19}. However, similar to the restrictive strand of work on effects, few works on algebraic effects has investigated the algebraic effect system on a larger scale, where abstraction between program components is important. \\
+Modularity is a key concept that separates abstract algebraic effects from the traditional way of using monad to model effects in purely functional programming \cite{schrijvers19}. However, similar to the restrictive strand of work on effects, few works on algebraic effects has investigated the algebraic effect system on a larger scale, where abstraction between program components is important. 
 
 Abstract algebraic effects are first introduced in \citet{biernacki19}. Similar to abstract types, abstract algebraic effects allow program components to define abstract effect signatures that is opaque to other components in the system. The difference between concrete and abstract effect signatures lies in the ability for program components to handle them. If an effect signature is concrete to a program component, then the operations are accessible the component, and a handler can handles the effect by handling the operations in the signature. On the other hand, if an effect signature is abstract to one program component, then the component should not observe the operations defined in the effect signature, and is therefore unable to handle the effect. As abstraction is an important issue for module systems because it provides a separation of implementation details of functions from the interface, abstraction of algebraic effects provides a similar benefit for modularity because it helps separate the component operations from the effect signature, ensuring that the client can only uses the handler provided by the library to handle the effect.
 
 The following code is a motivating example similar to the example in \cite{biernacki19} that illustrates the challenges of implementing abstract algebraic effects. \li{Nondet} is a globally defined effect signature. Then we define a module \li{m} with type \li{M} with an abstract effect \li{E}, a method \li{mflip}, and a handler method \li{handle}. The effect \li{E} is defined by \li{Nondet}, but is opaque to the outside world of the module, because \li{E} is defined as an abstract effect in the type \li{M}. The method \li{mflip} simply calls the \li{flip} operation, and the \li{handle} method handles the \li{flip} operation by returning \li{true}. 
 
-\begin{lstlisting}[language=scala]  
+\begin{lstlisting}[language=wyvern, float]  
 effect Nondet {
     flip(): Bool  
 }
@@ -34,15 +34,16 @@ module m: M
 
 m.handle(
   () => handle m.mflip() with
-          | flip() ->  resume false
- )
+        | flip() ->  resume false
+        | return x -> x
+)
 \end{lstlisting}
 
-The last segment of the above example shows an client code of module \li{m} that calls the method \li{m.handle} and pass in an expression that encapsulate the call to \li{m.mflip} by another handler that handles the \li{flip} operation. Since the effect of the method \li{m.mflip} is abstract, the inner handler should not handle the operation inside \li{m.mflip}. Instead, the operation should be handled by the outer handler method \li{m.hanlde}.  
+The last segment of the  example shows an client code of module \li{m} that calls the method \li{m.handle} and pass in an expression that encapsulate the call to \li{m.mflip} with another handler that handles the \li{flip} operation. Since the effect of the method \li{m.mflip} is abstract, the inner handler should not handle the operation inside \li{m.mflip}. Instead, the operation should be handled by the outer handler method \li{m.hanlde}.  
 
-As we can see, the abstraction of effect signatures differs from type abstractions, since the erasure of type information would make the abstraction unsound. So we need a language that keep track of the information on effect abstraction during the evaluation of the program. In this work, we incorporate the method of syntactic type abstraction introduced by \citet{grossman00}, who use the notion of principals to track the flow of values with abstract types during the evaluation of a program. 
+As we can see, the abstraction of effect signatures differs from type abstractions, since the erasure of type information would make the abstraction unsound. So we need a language that keeps track of the information on effect abstraction during the evaluation of the program. In this work, we incorporate the method of syntactic type abstraction introduced by \citet{grossman00}, who use the notion of principals to track the flow of values with abstract types during the evaluation of a program. 
 
-\section{A Simple Example of an Agent-based Language}
+\section{A Simple Example of the Agent-based Language}
 Consider the simple case where we only have two agents, namely the client \li{c}, and the host \li{h}. And the host \li{h} defines an abstract effect \li{E}, exports a method that causes the effect and a method that handles the effect.
 \begin{lstlisting}[mathescape=true]
 module h = 
@@ -62,9 +63,9 @@ with
 \end{lstlisting}
 \end{minipage}
 
-Since $m$ function is called in the client code, we use a language construct called embedding to encapsulate the function call. This subscript of the embedding indicates that the code inside the embedding is host code, and the superscript indicates that the effect of the code is \li{E}, which is abstract to the client. So the embedding ensures that the client would not be able to handle the operation inside the function \li{m}, therefore keeping the effect abstraction safe. 
+Since $m$ function is called in the client code, we use a language construct called embedding to encapsulate the function call. The subscript \li{h} of the embedding indicates that the code inside the embedding is host code, and the superscript \li{E} indicates that the effect of the code is \li{E}, which is abstract to the client. So the embedding ensures that the client would not be able to handle the operation inside the function \li{m}, therefore keeping the effect abstraction safe. 
 
-Besides making the client unable to handle an abstract effect, we need to make sure that a host code can "rediscover" the effect exported by itself. The scenario would be exhibited by the following host code. The client code we showed earlier is now embedded into another handler that handles the the effect E. Because the outer-most handler is now in host code, it would be able to handle the effect operation inside the function \li{m}.
+Besides making the client unable to handle an abstract effect, we need to make sure that a host code can ``rediscover" the effect exported by itself. The scenario would be exhibited by the following host code. The client code we showed earlier is now embedded into a host handler that handles the the effect E. Because the outer-most handler is now in host code, it would be able to handle the effect operation inside the function \li{m}.
 
 \begin{minipage}{\linewidth}
 \begin{lstlisting}[mathescape=true]
@@ -88,47 +89,44 @@ with
 \subsection{Syntax}
 \begin{figure}
 \begin{align*}
-&(agents) &i, j &::= \{1 \dots n\}\\
-&(lists) & l &::= i \mid il\\
-&(value\ types) &\tau &::= unit \mid \tau \rightarrow \sigma\\
-&(computation\ types) &\sigma &::= \{\varepsilon\}\tau\\
-&(effect\ types) &\varepsilon &::= \cdot \mid f, \varepsilon \mid op, \varepsilon\\
-&(i\  values) &{v_i} &::= ()_i \mid \lambda x_i:\tau.\ c_i\\
-&(i\ expression) &e_i &::= x_i \mid v_i \mid [e_j]^\tau_j \\
-&(i\ computation) &c_i &::= \texttt{return}\ e_i \mid op(e_i, y.c_i) \mid \texttt{do}\ x \leftarrow c_i\ \texttt{in}\ c_i' \mid e_i\ e_i' \mid \texttt{with}\ h_i\ \texttt{handle}\ c_i\\
- &\ &\mid\ &[c_j]^\sigma_j \mid [op]^\varepsilon_l (e_i, y_i.c_i)\\
-&(i\ handler) &h_i &::= \texttt{handler}\ \{\texttt{return}\ x_i \mapsto c^r_i, op^1(x_i^1, k^1) \mapsto c_i^1 \dots  op^n(x_i^n, k^n) \mapsto c_i^n\}  
+&\text{(agents)} &i, j &::= \{1 \dots n\}\\
+&\text{(lists)} & l &::= i \mid il\\
+&\text{(value types)} &\tau &::= unit \mid \tau \rightarrow \sigma\\
+&\text{(computation\ types)} &\sigma &::= \{\varepsilon\}\tau\\
+&\text{(effect types)} &\varepsilon &::= \cdot \mid f, \varepsilon \mid op, \varepsilon\\
+&\text{(i-values)} &{v_i} &::= ()_i \mid \lambda x_i:\tau.\ c_i\\
+&\text{(i-expressions)} &e_i &::= x_i \mid v_i \mid [e_j]^\tau_j \\
+& \text{(i-computations)} &c_i &::= \texttt{return}\ e_i \mid op(e_i, y.c_i) \mid \texttt{do}\ x \leftarrow c_i\ \texttt{in}\ c_i' \mid e_i\ e_i'\\
+ &\ &\ &\  \mid \texttt{with}\ h_i\ \texttt{handle}\ c_i \mid\ [c_j]^\sigma_j \mid [op]^\varepsilon_l (e_i, y_i.c_i)\\
+&\text{(i-handlers)} &h_i &::= \texttt{handler}\ \{\texttt{return}\ x_i \mapsto c^r_i, op^1(x_i^1, k^1) \mapsto c_i^1, \dots ,  op^n(x_i^n, k^n) \mapsto c_i^n\}  
 \end{align*}
 \caption{Syntax for multi-agent calculus}
 \label{fig-core}
 \end{figure}
 
-This section describes a variant of the simply typed lambda calculus that maintains a syntactic distinction between agents during evaluation. Figure \ref{fig-core} gives the syntax of our calculus. As our previous discussion, it is crucial to keep track of the effect abstraction information during the evaluation of the program. It is therefore natural to divide the code into agents, and allow each agent to export abstract effect signatures. We assume that there are $n$ agents, and use variables $i, j, k$ to range over the set of agents. 
+This section describes a variant of the simply typed lambda calculus that maintains a syntactic distinction between agents during evaluation. Figure \ref{fig-core} gives the syntax of our calculus. As our previous discussion, it is crucial to keep track of the effect abstraction information during the evaluation of the program. It is therefore natural to divide the code into agents, and allow each agent to export abstract effect signatures. We assume that there are $n$ agents, and variables $i, j, k$ range over the set of agents. 
 
 Every term in this language is assigned to an agent. And terms are split into inert expressions and potentially effectful computations, following an approach called \emph{fine-grain call-by-value}, introduced by \citet{levy03}. We use the notation \emph{i-expression} and \emph{i-computation} to denote expressions and computations in the agent i. We use subscripts to indicate a term is assigned to an agent, however, we will omit the subscript if the agent the term belongs to is not important or obvious in the context.
 
-An \emph{i-value} is an \emph{i-expression} that cannot further reduce. There are two forms of \emph{i-value}: the unit $()$, and the lambda abstraction $\lambda x_i: \tau.\ c_i$. \emph{i-expressions} include variable $x_i$, value $v_i$, and embedded expressions $[e_j]^\tau_j$. \emph{i-computations} are the terms that can potentially cause effects, and consists of return statement $\m{return} e_i$, operation call $op(e_i; y_i.c_i)$, sequencing $\m{do} x_i \leftarrow c_i \m{in} c_i'$, application $e_i\ e_i'$, handling $\m{with} h_i \m{handle} c_i$, embedded computation $[c_j]^\sigma_j$, and embedded operation call $[op]^\varepsilon_l(e_i; y_i.c_i)$. There are few things worth mentioning: 
+An \emph{i-value} is an \emph{i-expression} that cannot be further reduced. There are two forms of \emph{i-value}: the unit $()$, and the lambda abstraction $\lambda x_i: \tau.\ c_i$. \emph{i-expressions} include variable $x_i$, value $v_i$, and embedded expressions $[e_j]^\tau_j$. \emph{i-computations} are the terms that can potentially cause effects, and consists of return statement $\m{return} e_i$, operation call $op(e_i; y_i.c_i)$, sequencing $\m{do} x_i \leftarrow c_i \m{in} c_i'$, application $e_i\ e_i'$, handling $\m{with} h_i \m{handle} c_i$, embedded computation $[c_j]^\sigma_j$, and embedded operation call $[op]^\varepsilon_l(e_i; y_i.c_i)$. There are few things worth mentioning: 
 \begin{enumerate}
-\item[] \textbf{Sequencing}: in $\m{do} x \leftarrow c \m{in} c'$, we first evaluate $c$,  bind the return value of $c'$ to x and then evluate $c_2$
-\item[] \textbf{Operation Calls}: The call $op(e; y.c)$ passes the parameter $e$ to the operation $op$,  binds the return value of the operation call to $y$, and continue by evaluating the computation $c$. Note that the encompassing handler could potentially change the behavior of the operation.
-\item[] \textbf{Embeddings}: the term $[e_j]^\tau_j$ is i-expression that contains an embedded j-expression, with a type $\tau$ exported by $j$. Similarly, $[c_j]^\sigma_j$ is an embedded j-expression with exported type $\sigma$ 
-\item[] \textbf{Embedded Operations}: The embedded operation $[op]^\varepsilon_l(e; y.c)$ is a operation call that is annotated with effect $\varepsilon$. $l$ is a list of agents that have contributed to the formation of the annotation. We will describe this in more detail later.
-\todo[inline]{Does this appear in source code?}
-\end{enumerate}
+\item[] \textbf{Sequencing}: In $\m{do} x \leftarrow c \m{in} c'$, we first evaluate $c$,  bind the return value of $c'$ to x and then evluate $c_2$
+\item[] \textbf{Operation Calls}: The call $op(e; y.c)$ passes the parameter $e$ to the operation $op$,  binds the return value of the operation call to $y$, and continue by evaluating the computation $c$. Note that the encompassing handler could potentially change the behavior of the operation.  Explicit continuations greatly simplifies the operational semantics of the language, because continuations make the order of the execution of operations explicit. 
+\item[] \textbf{Embeddings}: the term $[e_j]^\tau_j$ is an i-expression that contains an embedded j-expression, with a type $\tau$ exported by $j$. Similarly, $[c_j]^\sigma_j$ is an embedded j-computation with exported type $\sigma$.
+\item[] \textbf{Embedded Operations}: The embedded operation $[op]^\varepsilon_l(e; y.c)$ is an operation call that is annotated with effect $\varepsilon$. $l$ is a list of agents that have contributed to the formation of the annotation.  The embedded operations should not appear in the source code, as they are an intermediate form of computation that keeps track of the effect annotation of operations. More details of this construct are given in section \ref{sec-op} on Operational Semantics.
+\end{enumerate} 
 
-\todo[inline]{Why have a continuation c rather than just return the value from op?}
-
-Similar to terms, types are also divided into expression types and computation types. There are two forms of expression types $\tau$: the unit type $1$, and the arrow type $\tau \rightarrow \sigma$. As for the computation type $\sigma$, there is only one form: $\{\varepsilon\}\tau$: where $\varepsilon$ is a set of effect that the computation might induce, and $\tau$ is the type of the return value of the computation. 
+Similar to terms, types are also divided into expression types and computation types. There are two forms of expression types $\tau$: the unit type $1$, and the arrow type $\tau \rightarrow \sigma$. As for the computation type $\sigma$, there is only one form: $\{\varepsilon\}\tau$, where $\varepsilon$ is a set of effect that the computation might induce, and $\tau$ is the type of the return value of the computation. 
 
 The effect type $\varepsilon$ represents an unordered set of effects that can be empty $\cdot$. A effect type can be extended by either an effect label $f$, or an operation $op$.
 
-The i-handler $h_i$ must contain a return clause that handles the case when the handled computation directly returns a value. It may also contain clauses that handle operations. For example, the clause $op(x, k) \mapsto c$ handles the operation $op$. More details can be found in the dynamic semantics section.
+The i-handler $h_i$ must contain a return clause $\m{return} x \mapsto c$, which handles the case when the handled computation directly returns a value. The returned value is bound to the variable $x$, and the entire handling computation evaluates to the computation $c$. A handler may also contain clauses that handle operations. For example, the clause $op(x, k) \mapsto c$ handles the operation $op$. More details can be found in the dynamic semantics section.
 
-\subsection{Agent Specific Type Information}
-We use agents to model a module system where each module can have private information about effect abstraction. Each agent in our language has limited knowledge of effect abstraction. For example, an agent i might knows that effect \li{Nondet = flip(): Bool}, and an agent $j$ does not have this information. As a result, agent i would be able to handle a computation with effect \li{Nondet}, while the agent j would not be able to do that. Furthermore, we need to ensure the consistency the information on effect abstraction, that is, agent j should not think that the effect \li{Nondet = read(): String}, which would contradict with the knowledge of agent i. 
+\subsection{Agent-Specific Type Information}
+We use agents to model a module system where each module can have private information about effect abstraction. Each agent in our language has limited knowledge of effect abstraction. For example, an agent i might knows that effect \li{Nondet = flip(): Bool}, and an agent $j$ does not have this information. As a result, agent i would be able to handle a computation with effect \li{Nondet}, while the agent j would not be able handle the effect, because from agent j's point of view, the effect \li{Nondet} is an abstract label without an operation. Furthermore, we need to ensure the consistency of the information on effect abstraction, that is, agent j should not think that the effect \li{Nondet = read(): String}, which would contradict with the knowledge of agent i. 
 
-The model of effect abstraction information is similar to the model of type information in \cite{grossman00}. To capture effect abstraction information, each agent $i$ has a partial function $\delta_i$ that maps an effect label to an effect type. There are two requirement for these maps: (1) For each effect label $f$, the if there are two agents that knows the implementation of the effect $f$, then there knowledge about the implementation must be the same. (2) For each effect label $f$, there is a unique and most concrete interpretation of $f$. We would not allow the effect label $f$ itself to appear in the implementation of $f$. Examples like $\delta_i(f) = \{f\}$ would be rejected.
-\todo[inline]{Give an example of deltai that contains an f and an op}
+The model of effect abstraction information is similar to the model of type information in \cite{grossman00}. To capture effect abstraction information, each agent $i$ has a partial function $\delta_i$ that maps an effect label to an effect type. There are two requirement for these maps: (1) For each effect label $f$, the if there are two agents that knows the implementation of the effect $f$, then there knowledge about the implementation must be the same. (2) For each effect label $f$, there is a unique and most concrete interpretation of $f$. We would not allow the effect label $f$ itself to appear in the implementation of $f$. Examples like $\delta_i(f) = \{f\}$ and $\delta_i(f) = \{f, op\}$ would be rejected.
+
 \begin{definition}
 A set $\{\delta_1, \dots, \delta_n\}$ of maps from effect labels to effects is \underline{compatible} if
 \begin{enumerate}
@@ -139,6 +137,7 @@ A set $\{\delta_1, \dots, \delta_n\}$ of maps from effect labels to effects is \
 
 Then we define the a total function $\Delta_i$ that refines an effect type:
 \begin{definition}
+$\Delta_i$ is a function that maps an effect type to another effect type, using the effect abstraction knowledge of the agent i.
 \begin{align*}
 \Delta_i(\cdot) &= \cdot \\
 \Delta_i(op, \varepsilon) &= op, \Delta_i(\varepsilon) \\
@@ -150,26 +149,28 @@ Then we define the a total function $\Delta_i$ that refines an effect type:
 \end{align*}
 \end{definition}
 
-The definition of compatibility ensures that there is a fixpoint for repeatedly refining an effect label $f$ using the function $\Delta_i$. We call such fixpoint $\overline{\Delta_i}(f)$.
-
-\todo[inline]{Show an example to apply Delta to get a fixpoint}
-\todo[inline]{Explain the intuition: Collect all ops and abstract effects}
+The definition of compatibility ensures that there is a fixpoint for repeatedly refining an effect label $\varepsilon$ using the function $\Delta_i$. We call such fixpoint $\overline{\Delta_i}(\varepsilon)$. 
 
 
 \begin{definition}
-$\overline{\Delta_i}(f) = \varepsilon$ if there is some $n \geq 0$
+$\overline{\Delta_i}(\varepsilon') = \varepsilon$ if there is some $n \geq 0$
 \[
-    \underbrace{\Delta_i(\dots (\Delta_i(f) \dots )}_\text{n applications}   = 
-    \underbrace{\Delta_i(\dots (\Delta_i(f) \dots )}_\text{n+1 applications}   = \varepsilon
+    \underbrace{\Delta_i(\dots (\Delta_i(\varepsilon') \dots )}_\text{n applications}   = 
+    \underbrace{\Delta_i(\dots (\Delta_i(\varepsilon') \dots )}_\text{n+1 applications}   = \varepsilon
  \]
  \end{definition}
  
- We assume that the type information for operations are public to all agents. The type  for an operation $op$ is contained a separate map $\Sigma$, which maps an operation $op$ to an arrow type $\tau_A \rightarrow \tau_B$. Note that this is different from the function type in our calculus, which has the form $\tau \rightarrow \sigma$.
+ To see how we apply $\Delta$ to reach a fix point, consider two effect labels $f$ and $g$ and an agent $i$. Agent i knows that the effect $f$ is implemented by two operations $op_1$ and $op_2$. Then consider applying $\Delta_i$ to the effect type $f, g$. We get $\Delta_i(f, g) = op_1, op_2, g$. Since $op_1$, $op_2$, and label $g$ is the most concrete form of effects, $\Delta_i$ cannot further refine the resulting type, so we have reached the fix point. So we have $\overline{\Delta_i}(f, g) = op_1, op_2, g$. As we can see, by repeatedly applying $\Delta_i$ and getting to a fixpoint, we effectively collect all operations and abstract effect labels in the agent i's perspective.
+
+
+
+ We assume that the type information for operations are public to all agents. The type  for an operation $op$ is contained by a separate map $\Sigma$, which maps an operation $op$ to an arrow type $\tau_A \rightarrow \tau_B$. Note that this is different from the function type in our calculus, which has the form $\tau \rightarrow \sigma$.
 
 
 
 
 \section{Operational Semantics}
+\label{sec-op}
 \begin{figure}[t]
 \footnotesize{
 

@@ -77,6 +77,15 @@
 \newtheorem{definition}{Definition}[section]
 
 
+\lstdefinelanguage{wyvern}{
+    morekeywords={type, effect, this, module, def, resume},
+    sensitive=true, % keywords are not case-sensitive
+    morecomment=[l]{//}, % l is for line comment
+    morecomment=[s]{/*}{*/}, % s is for start and end delimiter
+    morestring=[b]" % defines that strings are enclosed in double quotes
+} %
+
+
 
 % Provides a draft mark at the top of the document. 
 \draftstamp{\today}{DRAFT}
