@@ -630,14 +630,5 @@ The result follows directly from the induction hypothesis.
 \noindent Thus, the program written in this language never gets stuck.
 \end{proof}
 
-$[\lambda x_j : \tau.\ c_j]_j^E$
-
-this issue, we use the existential type introduced in section \ref{sec-exist} to define the module:
-\begin{lstlisting}[mathescape=true]
-val var = 
-  pack <{get, set},  {read $\hookrightarrow$ ... write $\hookrightarrow$ ... }>
-  as  $\exists$state. (read : Unit -> {state} Int) * (write : Int -> {state} Unit))
-\end{lstlisting}
-
 
 

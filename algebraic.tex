@@ -91,7 +91,7 @@ with
 \begin{align*}
 &\text{(agents)} &i, j &::= \{1 \dots n\}\\
 &\text{(lists)} & l &::= i \mid il\\
-&\text{(value types)} &\tau &::= unit \mid \tau \rightarrow \sigma\\
+&\text{(value types)} &\tau &::= 1 \mid \tau \rightarrow \sigma\\
 &\text{(computation\ types)} &\sigma &::= \{\varepsilon\}\tau\\
 &\text{(effect types)} &\varepsilon &::= \cdot \mid f, \varepsilon \mid op, \varepsilon\\
 &\text{(i-values)} &{v_i} &::= ()_i \mid \lambda x_i:\tau.\ c_i\\
@@ -116,7 +116,7 @@ An \emph{i-value} is an \emph{i-expression} that cannot be further reduced. Ther
 \item[] \textbf{Embedded Operations}: The embedded operation $[op]^\varepsilon_l(e; y.c)$ is an operation call that is annotated with effect $\varepsilon$. $l$ is a list of agents that have contributed to the formation of the annotation.  The embedded operations should not appear in the source code, as they are an intermediate form of computation that keeps track of the effect annotation of operations. More details of this construct are given in section \ref{sec-op} on Operational Semantics.
 \end{enumerate} 
 
-Similar to terms, types are also divided into expression types and computation types. There are two forms of expression types $\tau$: the unit type $1$, and the arrow type $\tau \rightarrow \sigma$. As for the computation type $\sigma$, there is only one form: $\{\varepsilon\}\tau$, where $\varepsilon$ is a set of effect that the computation might induce, and $\tau$ is the type of the return value of the computation. 
+Similar to terms, types are also divided into expression types and computation types. There are two forms of expression types $\tau$: the unit type $1$, and the arrow type $\tau \rightarrow \sigma$. As for the computation type $\sigma$, there is only one form: $\{\varepsilon\}\tau$, where $\varepsilon$ is a set of effects that the computation might induce, and $\tau$ is the type of the return value of the computation. 
 
 The effect type $\varepsilon$ represents an unordered set of effects that can be empty $\cdot$. A effect type can be extended by either an effect label $f$, or an operation $op$.
 
@@ -314,22 +314,22 @@ $\fbox{$c \longrightarrow c'$}$
 
 \end{figure}
 
-The reduction rules for terms are dependent on the agent of the terms. Figure \ref{fig-op1} shows that operational semantics for expressions of agent i. (E-Congurence) shows that a j-expression embedded agent-i should be evaluated using the reductions rules for agent j first. The (E-Unit) and (E-Lambda) rules show that we can lift an embedded j-value to agent i, so the value becomes an i-value. The (E-Unit) rule simply lifts the unit value out of the embedding. The (E-Lambda) rule is more interesting: The value embedded is a lambda expression of agent j. We lift the argument out of the embedding. However, the type annotating the argument is changed from $\tau'$ to the exported argument type $\tau$, because the reduced expression should have the exported type $\tau \rightarrow \sigma$. The body of the reduced expression is an embedded j-computation, so the variable $x_i$ should be encapsulated by an embedding, because any i-term should be embedded in a j-term. We annotate $x_i$ with type $tau'$ because the original lambda function expects a value of type $tau'$. 
+The reduction rules for terms are dependent on the agent of the terms. Figure \ref{fig-op1} shows that operational semantics for expressions of agent i. (E-Congurence) shows that a j-expression embedded agent-i should be evaluated using the reductions rules for agent j first. The (E-Unit) and (E-Lambda) rules show that we can lift an embedded j-value to agent i, so the value becomes an i-value. The (E-Unit) rule simply lifts the unit value out of the embedding. The (E-Lambda) rule is more interesting: The value embedded is a lambda expression of agent j. We lift the argument out of the embedding. However, the type annotating the argument is changed from $\tau'$ to the exported argument type $\tau$, because the reduced expression should have the exported type $\tau \rightarrow \sigma$. The body of the reduced expression is an embedded j-computation, so the variable $x_i$ should be encapsulated by an embedding, because any i-term should be embedded in a j-term. We annotate $x_i$ with type $\tau'$ because the original lambda function expects a value of type $\tau'$. 
 
-Figure \ref{fig-op2} shows the reduction rules for i-computations. (E-Ret) is the congruence rule that evaluates the expression in return statement. (E-Op) evaluates the input argument for the operation call. Note that there are no reduction rules for operation calls because the semantics for operations are defined by the handler encapsulating it. 
+Figure \ref{fig-op2} shows the reduction rules for i-computations. (E-Ret) is the congruence rule that evaluates the expression in return statement. (E-Op) evaluates the input argument for the operation call. Note that there are no non-congruence reduction rule for operation calls because the semantics for operations are defined by the handler encapsulating it. 
 
-(E-Embed1) is the congruence rule for embedded computations. (E-Embed2) lifts the return statement out of the embedding. We can safely remove the effect annotation $\varepsilon$ because the returned value $v_j$ cannot cause any effect. 
+(E-Embed1) is the congruence rule for embedded computations. (E-Embed2) lifts the return statement out of the embedding. We can safely remove the effect annotation $\varepsilon$ because the statement that returns an value $v_j$ cannot cause any effect. 
 
-(E-Embed3) lifts an operation call out of the embedding. We annotate the operation with the effect annotation of the whole computation. Since the argument value for $op$ is a j-value, we need to embed it as a i-value, and annotate it with type $\tau_A$. The continuation $c_j$ is still embedded, and we substitute the embedded variable $y_i$ for $y_j$, because $y_i$ should be an embedded i-value in a j-value.
+(E-Embed3) lifts an operation call out of the embedding. This rule introduces embedded operation as a new language construct. We annotate the embedded operation with the effect annotation of the whole computation. Since the argument value for $op$ is a j-value, we need to embed it as a i-value, and annotate it with type $\tau_A$. The continuation $c_j$ is still embedded, and we substitute the embedded variable $y_i$ for $y_j$. $y_i$ should be embedded because  i-values should be embedded in a j-value.
 
 The (E-Embed4) rule is very similar to (E-Embed3) with one difference being that $op$ is already embedded. In this case, we override the annotation on $op$ with the annotation for the whole computation, and update the agent list in the subscript of the operation. We add $j$ to the agent list because the agent j have contributed to the effect annotation of the operation.
 
 
-(E-EmbedOp1) evaluates the argument expression to an embedded operation. (E-EmbedOp2) refines the effect annotation of an operation. (E-EmbedOp3) lifts the operation out of an embedding when the annotation contains the operation, because the agent i has enough information about effect abstraction to handle the operation. Note that we require that the effect annotation cannot be further refined, in order to ensure determinism of evaluation. (E-EmbedOp4) removes an operation that is not $op$ out of the effect annotation, as this is helpful in our proof of type soundness.
+(E-EmbedOp1) evaluates the argument of an embedded operation. (E-EmbedOp2) refines the effect annotation of an operation by looking up the effect $\varepsilon$ from the type information of the agent i, $\Delta_i$. (E-EmbedOp3) lifts the operation out of an embedding when the annotation contains the operation, because the agent i has enough information about effect abstraction to handle the operation. Note that in the premise, we require that the effect annotation cannot be further refined, in order to ensure determinism of evaluation. (E-EmbedOp4) removes an operation that is not $op$ out of the effect annotation. This step does not affect the correctness of the type information, and is helpful in our proof of type soundness.
 
-(E-App1), (E-App2) and (E-App3) are standard call-by-value semantics for applications. (E-Seq1) evaluates the first computation in a sequence of computations. (E-Seq2) binds the return value of the first computation to a variable in the second computation. (E-Seq3) witnesses an operation call as the first computation in a sequence. Since there is no way to further evaluate an operation right away, we propagate the operation call outwards and defer further evaluation to the continuation of the call. (E-Seq4) is similar to (E-Seq3), and requires that the effect annotation on the embedding to be most precise. 
+(E-App1), (E-App2) and (E-App3) are standard call-by-value semantics for applications. (E-Seq1) evaluates the first computation in a sequence of computations. (E-Seq2) binds the return value of the first computation to a variable in the second computation. (E-Seq3) witnesses an operation call as the first computation in a sequence. Since there is no way to further evaluate an operation right away, we propagate the operation call outwards and defer further evaluation to the continuation of the call. (E-Seq4) is similar to (E-Seq3), and requires that the effect annotation on the embedding to be the most concrete annotation. 
 
-(E-Handle1) simply evaluates the computation encapsulated by the handler. In (E-Handle2), the computation returns a value, so we substitute the value into the computation of the clause that handles the return statement in the handler. (E-Handle3) shows that case when the handler $h_i$ has a matching clause for the operation $op$. We substitute the argument $v_i$ for $x_i$, and substitute the continuation of the operation for $k$. The continuation function receives an argument of type $\tau_B$, which is the result type of the operation $op$, and computes the continuation of the operation $c_i$, but encapsulating it with the handler $h_i$. The (E-Handle4) shows the case when the operation is not handled by the handler, so we propagate the operation outwards to wait for another handler to handle it. The (E-Handler5) ensures that abstracted effects are not handled: If the current agent cannot refine the effect annotation, then the operation is abstract and cannot be handled, and is therefore propagated outward. 
+(E-Handle1) simply evaluates the computation encapsulated by the handler. In (E-Handle2), the computation returns a value, so we substitute the value into the computation of the clause that handles the return statement in the handler. (E-Handle3) shows that case when the handler $h_i$ has a matching clause for the operation $op$. We substitute the argument $v_i$ for $x_i$, and substitute the continuation of the operation for $k$. The continuation function receives an argument of type $\tau_B$, which is the result type of the operation $op$, and computes the continuation of the operation $c_i$, but encapsulate the computation with the handler $h_i$. The (E-Handle4) shows the case when the operation is not handled by the handler, so we propagate the operation outwards to wait for another handler to handle it. The (E-Handler5) ensures that abstracted effects are not handled: If the current agent cannot refine the effect annotation, then the operation is abstract and cannot be handled, and is therefore propagated outward. 
 
 
 
@@ -406,22 +406,22 @@ The (E-Embed4) rule is very similar to (E-Embed3) with one difference being that
 
 
 \caption{Static Semantics}
-\label{wrap-static}
+\label{fig-static}
 \end{figure}
 
-Figure \ref{wrap-static} shows the static semantics of the core-calculus. Static semantics contains typing rules for both expressions and computations. Note that the type rules depend on the agent each expression or computation belongs to. 
+Figure \ref{fig-static} shows the static semantics of the core-calculus. Static semantics includes typing rules for both expressions and computations. Note that the typing rules depend on the agent each expression or computation belongs to. We assume that the following rules assign types to terms of agent i.
 
-The rule (T-Unit) assigns the unit type to a unit value. (T-Var) looks up a type of a variable from the context. (T-Lam) is the standard rule for typing a lambda function. Note that the body of a lambda is computation, so we need use the typing judgement for computation in the premise of this rule. (T-EmbedExp) assigns type to expression embeddings: The embedding has type $tau$ if the embedded expression $e_j$ is assigned to the type $\tau'$, and $tau$ is related to $tau'$ by the list $li$. We will elaborate on type relations later. 
+The rule (T-Unit) assigns the unit type $1$ to a unit value. (T-Var) looks up a type of a variable from the context. (T-Lam) is the standard rule for typing of a lambda function. Note that the body of a lambda is computation, so we need use the typing judgement for computation in the premise of this rule. (T-EmbedExp) assigns type to expression embeddings: The embedding has type $\tau$ if the embedded expression $e_j$ is assigned to the type $\tau'$, and $\tau$ is related to $\tau'$ by the list of agents $li$. We will elaborate on type relations later. 
 
-(T-Ret) assign a type to a return statement: As expected, the expression part of the computation type matches the type of the returned expression. However we can annotate the return statement with an arbitrary effect set, because our type system does not describe the precise effect in computations, but gives the upper bound of effect in computations.  
+(T-Ret) assigns a type to a return statement: As expected, the expression part of the computation type matches the type of the returned expression. However we can annotate the return statement with an arbitrary effect set, because our type system does not describe the precise effect in computations, but gives the upper bound of effect in computations.  
 
-(T-Op) shows the typing rule for operation calls. Again, since we allow effect annotations to be an unpper bound on effect, we can require the operation $op$ to be in the effect set $\varepsilon$.
+(T-Op) shows the typing rule for operation calls. Again, since we allow effect annotations to be an upper bound on effect, we can require the operation $op$ to be in the effect set $\varepsilon$.
 
 (T-Handle) shows the typing rule for the effect handling statement $\m{with} h_i \m{handle} c_i$. $c_i$ is a computation with effect type $\varepsilon$ and return type $\tau_A$. $h_i$ is a handler that contains clause that handler operations $op^1 , \dots ,op^n$. For the return clause, given the type of variable $x$ is $\tau_A$, the type of $c^r$ must be $\{\varepsilon'\}\tau_B$. For the clause handling the operation $op^i$, which has the operation type $\tau_i \rightarrow \tau_i'$,  if variable $x$ has type $\tau_i$, and continuation has the type $\tau_i' \rightarrow \{\varepsilon'\}\tau_B$, then the handling computation $c^i$ must have the type $\{\varepsilon'\}\tau_B$. The effect type after handling, $\varepsilon'$ should contain all of the effects that are not handled by the handler.
 
 (T-Embed) is very similar to (T-EmbedExp), where we use the type of the embedded computation and the type relation judgment to assign a type to the embedding. 
 
-(T-EmbedOp) first computes the type of $c_i$ given that $y_i$ has the correct type. It is required that the effect annotation on the embedding is a part of the effect of $c_i$. And $op$ should be related to the effect annotation using the type relations.
+(T-EmbedOp) first computes the type of $c_i$ given that $y_i$ has the correct type. It is required that the effect annotation on the embedding is a part of the effect of $c_i$. And $op$ should be related to the effect annotation by the type relations.
 
 \subsection{Type Relations}
 \begin{figure}[H]
@@ -468,14 +468,14 @@ The rule (T-Unit) assigns the unit type to a unit value. (T-Var) looks up a type
 }
 
 \caption{Type Relations}
-\label{wrap-static}
+\label{fig-relation}
 \end{figure}
 
-Type relations ensures the soundness of abstraction. The goal of type relations is to prohibit embeddings from exporting incorrect effect abstractions. For example, if a i-computation uses an effect operation $flip : 1 \rightarrow bool$, it should annotate the computation with effect $Nondet$ when exporting the computation, but should not  annotate it with the empty effect.
+Type relations ensures the soundness of abstraction. The goal of type relations is to prohibit embeddings from exporting incorrect effect abstractions. For example, if a i-computation uses an effect operation $flip : 1 \rightarrow bool$, which is an operation of effect \li{Nondet}, then whenever it is embedded in another agent, it should be annotated with effect \li{Nondet}, but should not  be annotated with the empty effect or other effects that does not contain \li{Nondet}.
 
 The judgements for expression types are of the form $\tau \leq_l \tau$, where $l$ is a list of agents that provide the type abstraction information used by the relation. (R-Unit) shows that unit types relates to itself. (R-Arrow) relates two arrow types given that the input types and the output types are related,  To relate two computation types, we just need to ensure the effect types and return types are related. 
 
-The relation for effect types does the actual work. By (R-EFF1), two effect types are related under a single agent $i$ if the first effect is a subset of the second effect after refined by the type information provided by $i$. (R-EFF2) shows that by using type information from a list of agents, we can combine the chain of relation between effects.
+The relation for effect types does the actual work. By (R-EFF1), two effect types are related under a single agent $i$ if the first effect is a subset of the second effect after refinement by the type information provided by $i$. (R-EFF2) shows that by using type information from a list of agents, we can combine the chain of relation between effects.
 
 \section{Safety Properties}
 In this section we state and prove the standard type-safety theorems for the core calculus.
@@ -573,7 +573,7 @@ By induction on the derivation of $\varepsilon \leq_l \varepsilon$. If (R-Eff1) 
 \label{lemma-relation2}
 If $\tau \leq_l \tau'$ then $\tau' \leq_{rev(l)} \tau$
 \begin{proof}
-By induction on the type relation rules. The proof is simple arguments that follow directly from IH.  
+By induction on the type relation rules. The proof consists of simple arguments that follow directly from IH.  
 \end{proof}
 \end{lemma}
 
@@ -733,7 +733,7 @@ The proof is a straightforward inductive argument on the structure of $c$.
 
 
 \begin{definition}
-A i-computation $c$ is \underline{oblivious} to effect label $f$ if $f \not\in Dom(\delta_i)$, and for all subexpression $[e]^\tau_j$ and subcomputation $[c]^\sigma_j$, $f \not\in Dom(\delta_j)$
+An  i-computation $c$ is \underline{oblivious} to effect label $f$ if $f \not\in Dom(\delta_i)$, and for all subexpression $[e]^\tau_j$ and subcomputation $[c]^\sigma_j$, $f \not\in Dom(\delta_j)$
 \end{definition}
 
 
@@ -844,7 +844,7 @@ If the reduction rule is E-Embed3, Then $c_1 = [op(v_1; y. k_1)]{\{\varepsilon\}
 
 \pagebreak
 \section{Translation of the Abstraction Problem}
-In this section we show an example of the process of evaluation of the example program presented in \ref{sec-motivation}. The original example could be rewritten  as follows:
+In this section we show the process of evaluation of the example program presented in \ref{sec-motivation}. The original example could be rewritten  as follows:
 \begin{lstlisting}[mathescape = true]
 op : 1 -> 1
   
