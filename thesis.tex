@@ -99,14 +99,14 @@
 \title{ %% {\it \huge Thesis Proposal}\\
 {\bf Extending Abstract Effects with Bounds and Algebraic Handlers}}
 \author{Anlun Xu}
-\date{November 2020}
+\date{December 2020}
 \Year{2020}
-\trnumber{}
+\trnumber{CMU-CS-20-141}
 
 \committee{
 Jonathan Aldrich (Chair)\\
 Frank Pfenning\\
-Alex Potanin, Victoria University of Wellington
+Alex Potanin (Victoria University of Wellington)
 \ 
 }
 
@@ -116,12 +116,13 @@ Alex Potanin, Victoria University of Wellington
 % copyright notice generated automatically from Year and author.
 % permission added if \permission{} given.
 
-\keywords{Effect Systems, Algebraic Effects and Handlers}
+\keywords{Effect Systems, Algebraic Effects and Handlers, Language-Based Security, Module Systems}
 
 \maketitle
 
 \begin{dedication}
-Dedication
+This thesis is dedicated to my parents.\\
+For their endless love, support, and encouragement.
 \end{dedication}
 
 \pagestyle{plain} % for toc, was empty
@@ -131,6 +132,7 @@ Dedication
 Effect systems have been a subject of active research for nearly four decades, with the most notable practical example being checked exceptions in programming languages such as Java.  The work on effects can be divided into two strands: The \textit{restrictive} approach (e.g., Java's checked exceptions) tracks effects that are already built into the language--such as reading and writing state or exceptions--and provides a way to restrict them.  The \textit{denotational} approach, which includes algebraic effects, defines the semantics of computational effects based on primitives. While there are many existing restrictive or denotational effect systems, they are rarely designed with scalability in mind. In this thesis, we design multiple effect systems around the idea of making effect system scalable when developing large and complex software. The first part of our work is a restrictive path-dependent effect system that provides a granular effect hierarchy by allowing abstract effect members to be bounded. This thesis presents a full formalization of the effect system, and provides an implementation as a part of the Wyvern programming language. The second part of our work presents a denotational effect system that supports abstract algebraic effects. This thesis gives a formalization of the system and provides proofs for type soundness and properties of effect abstraction. 
 \end{abstract}
 \begin{acknowledgments}
+I would like to thank my advisors, Jonathan Aldrich and Alex Potanin,  for their consistent support and guidance during the running of this project. Furthermore I would like to thank Frank Pfenning, for instructing the course Types and Programming Languages, and providing thorough feedback and critiques.  I would also like to thank Darya Melicher for her fundamental contribution to the earlier stage of this work.
 \end{acknowledgments}
 
 
