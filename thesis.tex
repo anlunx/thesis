@@ -72,8 +72,22 @@
 \newcommand{\keywadj}[1]{\mathtt{#1}}
 \newcommand{\keyw}[1]{\keywadj{#1}~}
 \newcommand{\m}[1]{\ \texttt{#1}\ }
+
+  
+\newtheoremstyle{exampstyle}
+  {1ex} % Space above
+  {1ex} % Space below
+  {} % Body font
+  {} % Indent amount
+  {\bfseries} % Theorem head font
+  {.} % Punctuation after theorem head
+  {.5em} % Space after theorem head
+  {} % Theorem head spec (can be left empty, meaning `normal')
+
+\theoremstyle{exampstyle}
 \newtheorem{theorem}{Theorem}
 \newtheorem{lemma}[theorem]{Lemma}
+
 \newtheorem{definition}{Definition}[section]
 
 
@@ -116,7 +130,7 @@ Alex Potanin (Victoria University of Wellington)
 % copyright notice generated automatically from Year and author.
 % permission added if \permission{} given.
 
-\keywords{Effect Systems, Algebraic Effects and Handlers, Language-Based Security, Module Systems}
+\keywords{Effect Systems, Algebraic Effects and Handlers, Language-Based Security, Modularity, Existential Types}
 
 \maketitle
 

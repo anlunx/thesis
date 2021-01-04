@@ -188,7 +188,7 @@ $\fbox{$e \longrightarrow e'$}$
   
 \infer[\textsc{(E-Lambda)}]
   {[\lambda x_j : \tau'.\ c_j]^{\tau \rightarrow \sigma}_{j} \longrightarrow \lambda x_i : \tau.\ [\{[x_i]^{\tau'}_{i}/x_j\}c_j]^\sigma_{j}}
-  {} \\[3ex]
+  {} 
 \end{array}
 \]
 }
@@ -222,7 +222,7 @@ $\fbox{$c \longrightarrow c'$}$
 {} \\[3ex]
 
 \infer[\textsc{(E-Embed3)}]
-{[op_j(v_j; y_j.c_j)]^{\{\varepsilon\}\tau}_j \longrightarrow [op_j]^\varepsilon_l([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_j)}
+{[op_j(v_j; y_j.c_j)]^{\{\varepsilon\}\tau}_j \longrightarrow [op_j]^\varepsilon_j([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_j)}
 { \Sigma(op) = \tau_A \rightarrow \tau_B} \\[3ex]
 
 \infer[\textsc{(E-Embed4)}]
@@ -283,7 +283,7 @@ $\fbox{$c \longrightarrow c'$}$
   
  \infer[\textsc{(E-Handle1)}]
   {\m{with} h_i \m{handle} c_i \longrightarrow \m{with} h_i \m{handle} c_i' }
-  {c_i \longrightarrow c_i'} \quad
+  {c_i \longrightarrow c_i'} \\[3ex]
   
 \infer[\textsc{(E-Handle2)}]
   {\m{with} h_i \m{handle} \m{return} v_i \longrightarrow \{v_i/x_i\}c_i' }
@@ -478,271 +478,60 @@ The judgements for expression types are of the form $\tau \leq_l \tau$, where $l
 The relation for effect types does the actual work. By (R-EFF1), two effect types are related under a single agent $i$ if the first effect is a subset of the second effect after refinement by the type information provided by $i$. (R-EFF2) shows that by using type information from a list of agents, we can combine the chain of relation between effects.
 
 \section{Safety Properties}
-In this section we state and prove the standard type-safety theorems for the core calculus.
-\begin{lemma} (Substitution) \\
-If $\Gamma, x_j : \tau' \vdash c_i : \sigma$ and $\Gamma \vdash e_j : \tau'$, then $\Gamma \vdash \{e_j/x_j\}c_i : \sigma$, and\\\
-If $\Gamma, x_j : \tau' \vdash e_i : \tau $ and $\Gamma \vdash e_j : \tau'$, then $\Gamma \vdash \{e_j/x_j\}e_i : \tau$
+In this section we state the standard type-safety theorems for the core calculus and a theorem that shows if an effect is abstract to a client, then the client would never handle the operation of that effect.  Since we split terms into expressions and computations, we state progress and preservation lemmas separately. The proofs to theorems stated in this section can be found in appendix \ref{appendix-alg}.
 
-\begin{proof}
-By rule induction on $\Gamma \vdash e : \tau$ and $\Gamma \vdash c : \sigma$
-\begin{enumerate}[align=left]
-\item[(T-Unit)] Trivial
-\item[(T-Var)] Trivial
-\item[(T-Lam)] 
-$$
-\infer[\textsc{(T-lam)}]
-  {\Gamma, x_j : \tau'  \vdash (\lambda x_i: \tau.\ c_i) : \tau \rightarrow \sigma}
-  {\Gamma,x_j : \tau',  x_i:\tau \vdash c_i : \sigma} 
-$$
-By IH, we have $\Gamma, x_i:\tau \vdash \{e_j/x_j\}c_i : \sigma$\\
-Then by (T-Lam) we have $\Gamma \vdash (\lambda x_i : \tau.\ \{e_j/x_j\}c_i) : \sigma$.\\
-Which is equivalent to $\Gamma \vdash \{e_j/x_j\}(\lambda x_i : \tau.\ c_i) : \sigma$.
-\item[(T-EmbedExp)] By inversion and IH
-\item[(T-Ret)] Follows by induction hypothesis
-\item[(T-Op)]  
-$$
-\infer[\textsc{(T-op)}]
-  {\Gamma\vdash op(e_i; y_i.c_i) : \{\varepsilon\}\tau }
-  {\Sigma(op) = \tau_A \rightarrow \tau_B & \Gamma \vdash e_i : \tau_A & \Gamma. y_i:\tau_B\vdash c_i: \{\varepsilon\}\tau & op \in \Delta_i(\varepsilon)} 
-$$
+\subsection{Type Soundness}
+We begin by stating the preservation and progress lemmas. The preservation lemma for expressions and computations are rather standard, except for the fact that we consider terms for each agent separately. In lemma \ref{preservation-exp}, if an i-expression steps to another i-expression, then the new expression should have the identical type as the original expression. Similarly, in lemma \ref{preservation-com}, the new computation should have the same effect type and return type as the original computation. 
 
-By inversion we have $\Gamma, x_j : \tau' \vdash e_i : \tau_A$ and $\Gamma, x_j : \tau', y_i : \tau_B \vdash c_i : \{\varepsilon\} \tau$. \\
-Since we can make $y_i$ a fresh variable, we have $\Gamma,  y_i : \tau_B, x_j:\tau' \vdash c_i : \{\varepsilon\} \tau$.\\
-Then by IH we have $\Gamma \vdash \{e_j/x_j\}e_i : \tau_A$ and $\Gamma,  y_i : \tau_B \vdash \{e_j/x_j\}c_i : \{\varepsilon\} \tau$.\\
-By (T-Op) we have $\Gamma \vdash op(\{e_j/x_j\}e_i; y_i.\{e_j/x_j\}c_i) : \{\varepsilon\}\tau$\\
-Therefore we have $\Gamma \vdash \{e_j/x_j\}(op(e_i; y_i.c_i)) : \{\varepsilon\}\tau$
+\begin{lemma}[Preservation for Expressions]   \ \\
+\label{preservation-exp}
+For all agent $i$, if $\Gamma \vdash e_i : \tau$ and $e_i \mapsto e_i'$, then $\Gamma \vdash e_i' : \tau$.
+\end{lemma} 
 
-\item[(T-Seq)] 
-$$
-\infer[\textsc{(T-seq)}]
-  {\Gamma, x_j : \tau'' \vdash \m{do} x_i \leftarrow c_i \m{in} c_i' : \{\varepsilon\}\tau' }
-  {\Gamma, x_j : \tau'' \vdash c_i : \{\varepsilon\}\tau & \Gamma, x_j : \tau'', x_i:\tau \vdash c_i': \{\varepsilon\}\tau'} 
-  $$
-By IH, we have $\Gamma \vdash \{e_j/x_j\}c_i : \{\varepsilon\}\tau$\\
-Since we can choose $x_i$ as a fresh variable, we have $\Gamma, x_i : \tau, x_j : \tau'' \vdash c_i': \{\varepsilon\}\tau'$\\
-Then by IH we have  $\Gamma, x_i : \tau \vdash \{e_j/x_j\}c_i': \{\varepsilon\}\tau'$\\
-Then the result follows by (T-Seq)
-\item[(T-App)] Follows directly by applying IH.
-\item[(T-Handle)] 
-$$
-\infer[\textsc{(T-handle)}]
-  {\Gamma, x_j : \tau' \vdash \m{with} h_i \m{handle} c_i: \{\varepsilon'\} \tau_B}
-  {\begin{gathered}
-  h_i = \{\m{return} x \mapsto c^r, op^1(x;k) \mapsto c^1, \dots, op^n(x;k) \mapsto c^n \}\\
-  \Gamma, x_j : \tau' , x: \tau_A \vdash c^r : \{\varepsilon'\}\tau_B \\
-  \left\{ \Sigma(op^i) = \tau_i \rightarrow \tau_i'  \quad \Gamma, x_j : \tau', x:\tau_i, k:\tau_i' \rightarrow \{\varepsilon'\}\tau_B \vdash c^i: \{\varepsilon'\}\tau_B    \right\}_{1 \leq i \leq n} \\
-  \Gamma, x_j : \tau' \vdash c_i : \{\varepsilon\}\tau_A \quad \varepsilon \setminus \{op^i\}_{1 \leq i \leq n} \subseteq \varepsilon'
-  \end{gathered}}
-  $$
-    Then handling clauses bind variables $x$ and $k$ in the handling computation $c^i$, so we can make them fresh variables that do not appear in context $\Gamma$. Then we can apply IH to typing judgements in the premise.
-    
-\item[(T-Embed)] Follows by applying IH
-\item[(T-EmbedOp)] The proof is similar to  the case for (T-Op)
-
-\end{enumerate}
-\end{proof}
+\begin{lemma}[Preservation for Computations] \ \\
+\label{preservation-com}
+For all agent $i$, if $\Gamma \vdash c_i : \{\varepsilon\} \tau$ and $c_i \longrightarrow c_i'$, then $\Gamma \vdash c_i' : \{\varepsilon\}\tau$
 \end{lemma}
 
-\begin{lemma} 
-\label{lemma-exact}
-If $\Gamma \vdash c_i : \{\varepsilon\}\tau$ then $\overline{\Delta_i}(\varepsilon) = \varepsilon$
-\begin{proof}
-By induction on derivation of $\Gamma \vdash c : \sigma$. (T-Ret) has a premise the ensures the lemma is correct. For other rules, the result is immediate by applying IH.
-
-\end{proof}
+The progress lemma for expressions (lemma \ref{progress-exp}) is also standard. If an i-expression is well-typed, then it either steps to another expression or is already a value.
+\begin{lemma}[Progress for Expressions] \ \\
+\label{progress-exp}
+For agent i, if $\varnothing \vdash e_i : \tau$ then either $e_i = v_i$ or $e_i \longrightarrow e_i'$.
 \end{lemma}
 
-\begin{lemma}
-\label{lemma-minus}
-If $\varepsilon \leq_l \varepsilon'$, then $\varepsilon \setminus op \leq_l \varepsilon' \setminus op$
-\begin{proof}
-By induction on $\varepsilon \leq_l \varepsilon$. The proof is straightforward.
-\end{proof}
-
-\end{lemma}
-
-\begin{lemma}
-\label{lemma-relation}
-If $op \leq_{l} \varepsilon$, then $op \leq_{l} \varepsilon \setminus op'$
-\begin{proof}
-By induction on the derivation of $\varepsilon \leq_l \varepsilon$. If (R-Eff1) is used, then the proof is straightforward because the subset relation on the premise still holds. If (R-Eff2) is used, by inversion on (R-Eff2), we have $op \leq_l \varepsilon'$ and $\varepsilon' \leq_{l'} \varepsilon$. By IH we have $op \leq_l \varepsilon' \setminus op'$. By lemma \ref{lemma-minus} we have $\varepsilon'  \setminus op' \leq_{l'} \varepsilon \setminus op'$. Then the result follows by (R-Eff2)
-\end{proof}
-\end{lemma}
-
-\begin{lemma}
-\label{lemma-relation2}
-If $\tau \leq_l \tau'$ then $\tau' \leq_{rev(l)} \tau$
-\begin{proof}
-By induction on the type relation rules. The proof consists of simple arguments that follow directly from IH.  
-\end{proof}
-\end{lemma}
-
-\begin{lemma} (Preservation for expressions) \\
-For all agent $i$, If $\Gamma \vdash e_i : \tau$ and $e_i \mapsto e_i'$, then $\Gamma \vdash e_i' : \tau$.
-\begin{proof}
-By induction on derivation of $e_i \mapsto e_i'$
-\begin{enumerate}[align=left]
-\item[(E-Congruence)] By inversion on the typing rule for embedded expressions, we have $\Gamma \vdash e_j : \tau'$. By IH, we have $\Gamma \vdash e_j' : \tau'$. Then we use (E-Contruence) to derive $\Gamma \vdash [e_j']^\tau_j : \tau$
-
-\item[(E-Unit)] Follows immediately from  (T-Unit)
-\item[(E-Lambda)] By inversion on (T-Embed), we have $\Gamma \vdash \lambda x_j:\tau'.\ c_j : \tau' \rightarrow \sigma'$, where $\tau' \rightarrow \sigma' \leq_{ji} \tau \rightarrow \sigma$.\\
-By inversion on (R-Arrow), we have $\tau' \leq_{ji} \tau$ and $\sigma' \leq_{ji} \sigma$\\
-By inversion on (T-Lambda), we have $\Gamma, x_j : \tau' \vdash c_j : \sigma'$. And since $x_i$ is a fresh variable in $c_j$, we have $\Gamma, x_i : \tau, x_j : \tau' \vdash c_j : \sigma'$\\
-By lemma \ref{lemma-relation2}, we have $\tau \leq_{ij} \tau'$, and therefore $\Gamma, x_i : \tau \vdash [x_i]^{\tau'}_i : \tau'$\\
-Then we can use the substitution lemma to derive $\Gamma, x_i : \tau \vdash \{[x_i]^{\tau'}_i / x_j\}c_j : \sigma'$.\\
-Then by (T-Embed), we have $\Gamma, x_i : \tau \vdash [  \{[x_i]^{\tau'}_i / x_j\}c_j ]^\sigma_j : \sigma$\\
-Then the result follows by (T-Lambda).
-
-\end{enumerate}
-\end{proof}
-\end{lemma}
-
-\begin{lemma} (Preservation for computations) \\
-If $\Gamma \vdash c_i : \{\varepsilon\} \tau$ and $c_i \longrightarrow c_i'$, then $\Gamma \vdash c_i' : \{\varepsilon\}\tau$
-
-\begin{proof} (Sketch)
-By induction on the derivation that $c_i \longrightarrow c_i'$. We proceed by the cases on the last step of the derivation.
-
-\begin{enumerate}
-\item E-Ret: By inversion, $\Gamma \vdash e_i: \tau$. By preservation of expressions and IH, we have  $\Gamma \vdash e_i': \tau$. Then we can use E-Ret to derive $\Gamma  \vdash c_i' : \{\varepsilon\} \tau$
-\item E-Op: Follow immediately from inversion and IH
-\item E-EmbedOp1: Follow immediately from inversion and IH
-\item E-EmbedOp2:  
-$$\infer[\textsc{(E-EmbedOp2)}]
-{[op_j]^\varepsilon_l(v_i; y_i.c_i) \longrightarrow [op_j]^{\varepsilon''}_l(v_i; y_i.c_i) }
-{\overline{\Delta_i}(\varepsilon) = \varepsilon''} \quad $$
-We have the typing rule as follows:
-$$\infer[\textsc{(T-EmbedOp)}]
-  {\Gamma\vdash [op]^\varepsilon_l(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau }
-  {\Sigma(op) = \tau_A \rightarrow \tau_B & \Gamma \vdash e_i : \tau_A & \Gamma. y_i:\tau_B\vdash c_i: \{\varepsilon'\}\tau & \overline{\Delta_i}(\varepsilon) \subseteq \overline{\Delta_i}(\varepsilon') & \Gamma \vdash op \leq_{li} \varepsilon}  $$
-  Since $\overline{\Delta_i}(\varepsilon'') = \varepsilon''$ and $\varepsilon'' = \overline{\Delta_i}(\varepsilon)$, we have $\overline{\Delta_i}(\varepsilon'')  \subseteq \overline{\Delta_i}(\varepsilon')$. Then we can use T-EmbedOp to derive $\Gamma\vdash [op]^{\varepsilon''}_l(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau $
-\item E-EmbedOp3:
-  We have the typing rule as follows:
-$$\infer[\textsc{(T-EmbedOp)}]
-  {\Gamma\vdash [op]^\varepsilon_l(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau }
-  {\Sigma(op) = \tau_A \rightarrow \tau_B & \Gamma \vdash e_i : \tau_A & \Gamma. y_i:\tau_B\vdash c_i: \{\varepsilon'\}\tau & \overline{\Delta_i}(\varepsilon) \subseteq \overline{\Delta_i}(\varepsilon') & \Gamma \vdash op \leq_{li} \varepsilon}  $$
-  By E-EmbedOp3, $op \in \overline{\Delta_i}(\varepsilon)$. So $op \in \overline{\Delta_i}(\varepsilon')$. 
-By inversion on the typing rule, we have $\Gamma, y_i:\tau_B\vdash c_i: \{\varepsilon'\}\tau$. By lemma \ref{lemma-exact}, we have $\Gamma, y_i:\tau_B\vdash c_i: \{\overline{\Delta_i}(\varepsilon')\}\tau$. Then we can use T-Op to derive the designed result $\Gamma \vdash op(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau $
-
-\item E-EmbedOp4:
-We have the typing rule as follows:
-$$\infer[\textsc{(T-EmbedOp)}]
-  {\Gamma\vdash [op]^\varepsilon_l(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau }
-  {\Sigma(op) = \tau_A \rightarrow \tau_B & \Gamma \vdash e_i : \tau_A & \Gamma. y_i:\tau_B\vdash c_i: \{\varepsilon'\}\tau & \overline{\Delta_i}(\varepsilon) \subseteq \overline{\Delta_i}(\varepsilon') & \Gamma \vdash op \leq_{li} \varepsilon}  $$
-By lemma \ref{lemma-relation}, we have $op \leq_{li} \varepsilon \setminus op'$. By inversion on the typing rule, we have $\Gamma, y_i:\tau_B \vdash c_i:\{\varepsilon'\}\tau$ and $\varepsilon \subseteq \overline{\Delta_i}(\varepsilon')$.  So $\varepsilon \setminus op' \subseteq \overline{\Delta_i}(\varepsilon')$. By lemma \ref{lemma-exact}, we have $\Gamma, y_i:\tau_B \vdash c_i:\{\overline{\Delta_i}(\varepsilon')\}\tau$. Then we can apply T-EmbedOp again to derive $\Gamma\vdash [op]^{\varepsilon \setminus op'}_l(e_i; y_i.c_i) : \{\overline{\Delta_i}(\varepsilon')\}\tau $
-  
-\item E-App1: Follows immediately by T-App
-\item E-App2: Follows immediately by T-App
-\item E-App3: By inversion of T-App, we $\Gamma \vdash (\lambda x_i: \tau.\ c_i) : \tau \rightarrow \sigma$, $\Gamma \vdash v_i : \tau$. By inversion of T-Lam, $\Gamma, x_i:\tau \vdash c_i : \sigma$. By substitution lemma, we have $\Gamma \vdash \{v_i/x_i\}c_i : \sigma$.
-
-\item E-Seq1:  Follows immediately by T-Seq and IH.
-\item E-Seq2: By inversion on T-Seq, we have $\Gamma \vdash \m{return} v_i : \{\varepsilon\}\tau$ and $\Gamma, x_i:  \tau \vdash c_i': \{\varepsilon\}\tau'$. By inversion on T-Ret, we have $\Gamma \vdash v_i: \tau$. Then by substitution lemma we have $\Gamma \vdash \{v_i/x\}c_i' : \{\varepsilon\}\tau'$.
-\item E-Seq3: 
-$$
-\infer[\textsc{(E-Seq3)}]
-  {\texttt{do}\ x \leftarrow op_i(v_i; y_i.c_i) \texttt{in}\ c_i' \longrightarrow op_i(v_i; y_i. \m{do} x \leftarrow c_i \m{in} c_i')}
-  {} $$
-  By inversion of T-Seq, we have $\Gamma \vdash op_i(v_i; y_i.c_i) : \{\varepsilon\}\tau$  and $\Gamma , x:\tau \vdash c_i' : \{\varepsilon\}\tau'$. By inversion on T-OP, we have $\Gamma, y_i: \tau_B \vdash c_i: \{\varepsilon\}\tau$ and $op \in \varepsilon$ and $\Gamma \vdash v_i : \tau_A$.  Then by T-Seq, we have $\Gamma, y_i : \tau_B \vdash \m{do} x \leftarrow c_i \m{in} c_i' : \{\varepsilon\}\tau'$. Then we can use T-Op to derive $\Gamma \vdash op_i(v_i; y_i. \m{do} x \leftarrow c_i \m{in} c_i') : \{\varepsilon\}\tau'$.
-
-\item E-Seq4
-$$
-\infer[\textsc{(E-Seq4)}]
-  {\texttt{do}\ x \leftarrow [op_j]^\varepsilon_l(v_i; y_i.c_i) \texttt{in}\ c_i' \longrightarrow [op_j]^\varepsilon_l(v_i; y_i. \m{do} x \leftarrow c_i \m{in} c_i')}
-  {\Delta_i(\varepsilon) = \varepsilon & op \not \in \varepsilon} $$
-$$
-\infer[\textsc{(T-seq)}]
-  {\Gamma\vdash \m{do} x_i \leftarrow c_i \m{in} c_i' : \{\varepsilon'\}\tau' }
-  {\Gamma \vdash c_i : \{\varepsilon'\}\tau & \Gamma, x_i:\tau \vdash c_i': \{\varepsilon'\}\tau'}  $$
-By inversion on T-Seq, we have $\Gamma \vdash [op_j]^\varepsilon_l(v_i; y_i.c_i): \{\varepsilon'\}\tau$ and $\Gamma, x:\tau \vdash c_i' : \{\varepsilon'\} \tau'$. Then by inversion on T-EmbedOp, we have $\Gamma, y_i:\tau_B \vdash c_i: \{\varepsilon'\}\tau$, $\overline{\Delta_i}(\varepsilon) \subseteq \varepsilon'$.
-Then by T-Seq, we have $\Gamma, y_i:\tau_B \vdash \m{do} x \leftarrow c_i \m{in} c_i' : \{\varepsilon'\}\tau'$. Then by T-EmbedOp, we have $\Gamma \vdash [op]^\varepsilon_l(v_i; y_i.  \m{do} x \leftarrow c_i \m{in} c_i' ): \{\varepsilon'\}\tau'$
-
-\item E-Handle1: Follows immediately by inversion on T-Handle and IH
-\item E-Handle2: By T-Handle, we have $\Gamma \vdash \m{with} h_i \m{handle} \m{return} v_i :  \{\varepsilon'\}\tau_B$. By inversion on T-Handle, we have $\Gamma, x_i:\tau_A \vdash c_i' : \{\varepsilon\}\tau_B$, and $\Gamma \vdash \m{return} v_i : \{\varepsilon\} \tau_A$. By inversion on T-Ret, we have $\Gamma \vdash v_i : \tau_A$. Then by substitution lemma, we have $\Gamma \vdash \{v_i/x_i\}c_i' : \{\varepsilon'\}\tau_B$. 
-
-\item E-Handle3
-$$
-\infer[\textsc{(E-Handle3)}]
-  {\m{with} h_i \m{handle} op(v_; y_i.c_i) \longrightarrow \{v_i/x_i\} \{(\lambda y_i: \tau_i'.
-   \m{with} h_i\m{handle} c_i) / k\}c_i' }
-  {op(x_i; k) \mapsto c_i' \in h_i & \Sigma(op) = \tau_i \rightarrow \tau_i'} 
-$$
-By T-Handle, we have $\Gamma \vdash \m{with} h_i \m{handle} op(v;y_i.c_i) :  \{\varepsilon'\}\tau_B$. By inversion on T-Handle, we have $\Gamma, x_i:\tau_i, k: \tau_i' \rightarrow \{\varepsilon'\}\tau_B \vdash c_i' : \{\varepsilon'\} \tau_B$, and $\Gamma \vdash op(v; y_i.c_i) : \{\varepsilon\} \tau_A$. By inversion on T-Op, we have $\Gamma \vdash v_i : \tau_i$ and $\Gamma, y_i: \tau_i' \vdash c_i: \{\varepsilon\}\tau_A$. By T-Handle, we have $\Gamma, y_i: \tau_i' \vdash \m{with} h_i \m{handle} c_i : \{\varepsilon'\}\tau_B$. Then by T-Lam, we have $\Gamma \vdash \lambda y_i:\tau_i'.\ \m{with} h_i \m{handle} c_i : \tau_i' \rightarrow  \{\varepsilon'\}\tau_B$. Then, by substitution lemma, we have $\Gamma \vdash \{v_i/x_i\} \{(\lambda y_i: \tau_i'.
-   \m{with} h_i\m{handle} c_i) / k\}c_i' : \{\varepsilon'\}\tau_B$.
-   
-\item E-Handle4:
-$$
-\infer[\textsc{(E-Handle4)}]
-  {\m{with} h_i \m{handle} [op]^\varepsilon_l(v_i, y_i.c_i) \longrightarrow [op]^\varepsilon_l(v_i; y_i. \m{with} h_i \m{handle} c_i))}
-  {\Delta_i(\varepsilon) = \varepsilon & op \not \in \varepsilon} 
-$$
-
-$$
-\infer[\textsc{(T-handle)}]
-  {\Gamma\vdash \m{with} h_i \m{handle} c_i: \{\varepsilon'\} \tau_B}
-  {\begin{gathered}
-  h_i = \{\m{return} x \mapsto c^r, op^1(x;k) \mapsto c^1, \dots, op^n(x;k) \mapsto c^n \}\\
-  \Gamma, x: \tau_A \vdash c^r : \{\varepsilon'\}\tau_B \quad \\
-  \left\{ \Sigma(op^i) = \tau_i \rightarrow \tau_i'  \quad \Gamma, x:\tau_i, k:\tau_i' \rightarrow \{\varepsilon'\}\tau_B \vdash c^i: \{\varepsilon'\}\tau_B    \right\}_{1 \leq i \leq n} \\
-  \Gamma \vdash c_i : \{\varepsilon''\}\tau_A \quad \varepsilon'' \setminus \{op^i\}_{1 \leq i \leq n} \subseteq \varepsilon'
-  \end{gathered}}
-$$
-By T-Handle, we have $\Gamma \vdash \m{with} h_i \m{handle} [op]^\varepsilon_l(v;y_i.c_i) :  \{\varepsilon'\}\tau_B$. By inversion on T-Handle, we have $\Gamma \vdash [op]^\varepsilon_l(v;y_i.c_i): \{\varepsilon''\}\tau_A$ and $\varepsilon'' \setminus \{op^i\} \subseteq \varepsilon'$. By inversion on T-EmbedOp, we have $\Gamma \vdash v_i: \tau_i$, $\Gamma, y_i:\tau_i' \vdash c_i : \{\varepsilon''\}\tau_A$ and $\varepsilon \subseteq \varepsilon''$. Since $\varepsilon$ doesn't contain any concrete operation, we have $\varepsilon \subseteq  \varepsilon'' \setminus \{op^i\} \subseteq \varepsilon' $. Then by T-Handle, we have $\Gamma, y_i: \tau_i' \vdash \m{with} h_i \m{handle} c_i : \{\varepsilon'\}\tau_B$. Then, we use T-EmbedOp to derive $\Gamma \vdash [op]^\varepsilon_l(v_i; y_i. \m{with} h_i \m{handle} c_i) : \{\varepsilon'\}\tau_B$
-
-
-\item E-Embed1: Follows immediately from Inversion and IH
-\item E-Embed2: By typing rule, we have $\Gamma \vdash [\m{return} v_j]^{\{\varepsilon\}\tau}_l :\{\varepsilon\}\tau$. By inversion on the typing rule, we have $\Gamma \vdash \m{return} v_j : \{\varepsilon'\}\tau'$ such that $\{\varepsilon\}\tau' \leq_{li} \{\varepsilon\}\tau$. By inversion on R-Sigma, we have $\tau' \leq_{li} \tau$. Then by T-EmbedExp, we have $\Gamma \vdash [v_j]^\tau_l : \tau$. Then by T-Ret, we have $\Gamma \vdash \m{return}  [v_j]^\tau_l : \{\varepsilon\}\tau$. $\Gamma \vdash [\m{return} v_j]^{\{\varepsilon\}\tau}_l :\{\varepsilon\}\tau$
-
-\item E-Embed3: 
-$$
-\infer[\textsc{(E-Embed3)}]
-{[op(v_j; y_j.c_j)]^{\{\varepsilon\}\tau}_l \longrightarrow [op]^\varepsilon_l([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_l)}
-{ \Sigma(op) = \tau_A \rightarrow \tau_B} 
-$$
-By typing rule, we have $\Gamma \vdash op(v_j; y_j.c_j) : \{\varepsilon'\}\tau'$, where $\{\varepsilon'\}\tau' \leq_{li} \{\varepsilon\}\tau$. By inversion on T-Op, we have $\Gamma \vdash v_j : \tau_A$, and $\Gamma, y_j : \tau_B \vdash c_j: \{\varepsilon'\}\tau'$. Then, by T-EmbedExp, we have $\Gamma \vdash [v_j]^{\tau_A}_j : \tau_A$. By substitution lemma, we have $\Gamma, y_i: \tau_B \vdash \{[y_i]^{\tau_B}_i/y_j\}c_j : \{\varepsilon'\}\tau'$. By T-Embed, we have $\Gamma, y_i: \tau_B \vdash \{[y_i]^{\tau_B}_i/y_j\}[c_j]^{\{\varepsilon\}\tau}_l : \{\varepsilon\}\tau$. Then we can use T-EmbedOp to derive $\Gamma \vdash [op]^\varepsilon_l([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_l): \{\varepsilon\}\tau$. 
-
-\item E-Embed4:
-$$
-\infer[\textsc{(E-Embed4)}]
-{[[op_k]^{\varepsilon'}_{l'}(v_j; y_j.c_j)]^{\{\varepsilon\}\tau}_l \longrightarrow [op_k]^\varepsilon_{l'jl}([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_l)}
-{ \Sigma(op_k) = \tau_A \rightarrow \tau_B& \Delta_j(\varepsilon') = \varepsilon' & op \not \in \varepsilon'} 
-$$
-By typing rule, we have $\Gamma \vdash [op_K]^{\varepsilon'}_{l'}(v_j; y_j.c_j) : \{\varepsilon''\}\tau''$, where $\{\varepsilon''\}\tau'' \leq_{li} \{\varepsilon\}\tau$. By inversion on T-EmbedOp, we have $\Gamma \vdash v_j: \tau_A$ and $\Gamma, y_j : \tau_B \vdash c_j: \{\varepsilon''\}\tau''$. Then, by T-EmbedExp, we have $\Gamma \vdash [v_j]^{\tau_A}_j : \tau_A$.
-By substitution lemma, we have $\Gamma, y_i: \tau_B \vdash \{[y_i]^{\tau_B}_i/y_j\}c_j : \{\varepsilon''\}\tau''$. By T-Embed, we have $\Gamma, y_i: \tau_B \vdash \{[y_i]^{\tau_B}_i/y_j\}[c_j]^{\{\varepsilon\}\tau}_l : \{\varepsilon\}\tau$. Then we use T-EmbedOp to derive $\Gamma \vdash [op_k]^\varepsilon_{l'jl}([v_j]^{\tau_A}_j; y_i. \{[y_i]^{\tau_B}_i / y_j\}[c_j]^{\{\varepsilon\}\tau}_l) : \{\varepsilon\}\tau$.
-\end{enumerate}
-\end{proof}
-\end{lemma}
-
-\begin{lemma} (Progress) \\
+The progress lemma for computations (lemma \ref{progress-com}) is a bit more involved. For any well-typed i-computation, there are four possibilities. Similar to expressions, a computation can evaluates to another computation. Otherwise, a computation could potentially be a return statement, an operation, or an embedded operation. The dynamic semantics ensures that these are the only possible final configurations for a computation.
+ 
+\begin{lemma}[Progress for Computations]\ \\
+\label{progress-com}
 If $\varnothing \vdash c_i : \{\varepsilon\} \tau$ then either
 \begin{enumerate}
 \item  $c_i \longrightarrow c_i'$ 
 \item  $c_i = \m{return} v_i$
 \item $c_i = op(v_i; y_i.c_i')$
 \item $c_i = [op]^\varepsilon_l(v_i; y_i.c_i')$
- \end{enumerate}
-\begin{proof}
-The proof is a straightforward inductive argument on the structure of $c$.
-\end{proof}
+\end{enumerate}
 
 \end{lemma}
 
 
 
 
+\subsection{Abstraction Safety}
 
+In this section we proof a theorem on the correctness of effect abstraction. The intuition is that if a computation contains operations that are part of an opaque abstract effect, i.e., the definition of the effect is hidden from the the agents in the computation, then the evaluation computation would not be affected by the operations.
 
-
+We first define the notion of \emph{oblivious}. A computation is oblivious to an effect if and only if the effect is not known to the agent $i$, or any agent that lives inside the computation.
 \begin{definition}
 An  i-computation $c$ is \underline{oblivious} to effect label $f$ if $f \not\in Dom(\delta_i)$, and for all subexpression $[e]^\tau_j$ and subcomputation $[c]^\sigma_j$, $f \not\in Dom(\delta_j)$
 \end{definition}
 
-
+In the following theorem, we first define an equivalence relation. Two terms are equivalent if they are identical or the effect operations inside the terms are opaque to the agents in the terms. We show that two equivalent terms will stay equivalent after evaluation.
 \begin{theorem} 
 
 Let $c_1$ and $c_2$ be computations that are oblivious to the effect $f$.  If $c_1 \approx c_2$, $c_1 \rightarrow c_1'$, $c_2 \rightarrow c_2'$, then $c_1' \approx c_2'$. Furthermore,  If $e_1, e_2$ oblivious to f, $e_1 \approx e_2$, $e_1 \rightarrow e_1'$, $e_2 \rightarrow e_2'$, then $e_1' \approx e_2'$
 
 The relation $\approx$ is defined as follows:
-\begin{figure}[H]
+\begin{figure}[htb]
 \flushleft
 \footnotesize{
 
@@ -801,7 +590,7 @@ $\fbox{$h \approx h$}$
 
 
 }
-\caption{Definition of $\approx$}
+\caption{Definition of equivalence relation $\approx$}
 \end{figure}
 
 
@@ -824,7 +613,7 @@ If the reduction rule is E-Seq3, then $c_1 = \m{do} x \leftarrow op(v_1; y. k_1)
 
 If the reduction rule is E-Handle2. Then $c_1 = \m{with} h_1 \m{handle} \m{return} v_1$ and $c_2 = \m{with} h_2 \m{handle} \m{return} v_2$. By inversion we have $h_1 \approx h_2$, $v_1 \approx v_2$.  Let $\m{return} c_{r1} \in h_1$ and $\m{return} c_{r2} \in h_2$. By inversion we have $c_{r1} \approx c_{r2}$. So $\{v_1/x\}c_{r1} \approx \{v_2/x\}c_{r2}$.
 
-If the reduction rule is E-Handle3. Then $c_1 = \m{with} h_1 \m{handle} op(v_1; y. k_1)$ and $c_2 = \m{with} h_2 \m{handle} op(v_2; y.k_2) $. By inversion we have $v_1 \approx v_2$, $k_1 \approx k_2$ and $h_1 \approx h_2$. Then by equivalents rules we derive $c_1' \approx c_2'$. The case for E-Handle4 is similar.
+If the reduction rule is E-Handle4. Then $c_1 = \m{with} h_1 \m{handle} op(v_1; y. k_1)$ and $c_2 = \m{with} h_2 \m{handle} op(v_2; y.k_2) $. By inversion we have $v_1 \approx v_2$, $k_1 \approx k_2$ and $h_1 \approx h_2$. Then by rules on equivalence we derive $c_1' \approx c_2'$. The case for E-Handle5 is similar. 
 
 \item R-Embed: If reduction is E-Embed1,  result is immediate by IH. If reduction rule is E-Embed2, then $c_1 = [\m{return} v_1]^{\{\varepsilon\}\tau}_l$ and $c_2 = [\m{return} v_2]^{\{\varepsilon\}\tau}_l$. It is easy to see $[v_1]^\tau \approx [v_2]^\tau$. So the result holds.
 
