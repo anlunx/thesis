@@ -1,6 +1,6 @@
 % !TEX root = thesis.tex
 
-\chapter{Abstract Algebraic Effects Via Embeddings}
+\chapter{Abstract Algebraic Effects via Embeddings}
 \label{chapter-algebraic}
 
 \section{Background and Motivation}
@@ -613,7 +613,13 @@ If the reduction rule is E-Seq3, then $c_1 = \m{do} x \leftarrow op(v_1; y. k_1)
 
 If the reduction rule is E-Handle2. Then $c_1 = \m{with} h_1 \m{handle} \m{return} v_1$ and $c_2 = \m{with} h_2 \m{handle} \m{return} v_2$. By inversion we have $h_1 \approx h_2$, $v_1 \approx v_2$.  Let $\m{return} c_{r1} \in h_1$ and $\m{return} c_{r2} \in h_2$. By inversion we have $c_{r1} \approx c_{r2}$. So $\{v_1/x\}c_{r1} \approx \{v_2/x\}c_{r2}$.
 
-If the reduction rule is E-Handle4. Then $c_1 = \m{with} h_1 \m{handle} op(v_1; y. k_1)$ and $c_2 = \m{with} h_2 \m{handle} op(v_2; y.k_2) $. By inversion we have $v_1 \approx v_2$, $k_1 \approx k_2$ and $h_1 \approx h_2$. Then by rules on equivalence we derive $c_1' \approx c_2'$. The case for E-Handle5 is similar. 
+If the reduction rule is E-Handle3. Then $c_1 = \m{with} h_1 \m{handle} op(v_1; y_1. c_1)$, and  $c_2 = \m{with} h_2 \m{handle} op(v_2; y_2. c_2)$. By inversion we have $h_1 \approx h_2$, $v_1 \approx v_2$, and $c_1 \approx c_2$. Let $op(x_1; k_1) \mapsto c_1' \in h_1$ and  $op(x_2; k_2) \mapsto c_2' \in h_2$. By inversion on R-Handler we have $c_1' \approx c_2'$. Then we can conclude that the evaluated computations are still equivalent: $$ 
+\begin{gathered}
+\{v_1 / x_1\} \{(\lambda y_1: \tau_B.\m{with} h_1 \m{handle} c_1)/k\}c_1' \approx 
+\\ \{v_2 / x_2\} \{(\lambda y_2: \tau_B.\m{with} h_2 \m{handle} c_2)/k\}c_2'
+\end{gathered}$$ 
+
+If the reduction rule is E-Handle4. Then $c_1 = \m{with} h_1 \m{handle} op(v_1; y. k_1)$ and $c_2 = \m{with} h_2 \m{handle} op(v_2; y.k_2) $. By inversion we have $v_1 \approx v_2$, $k_1 \approx k_2$ and $h_1 \approx h_2$. Then by equivalence rules we have $c_1' \approx c_2'$. The case for E-Handle5 is similar. 
 
 \item R-Embed: If reduction is E-Embed1,  result is immediate by IH. If reduction rule is E-Embed2, then $c_1 = [\m{return} v_1]^{\{\varepsilon\}\tau}_l$ and $c_2 = [\m{return} v_2]^{\{\varepsilon\}\tau}_l$. It is easy to see $[v_1]^\tau \approx [v_2]^\tau$. So the result holds.
 
