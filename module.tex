@@ -2,9 +2,9 @@
 
 \chapter{Algebraic Effects with Existential Types}
 \section{Motivation}
-In section \ref{sec-state}, we defined a resource type \m{Var} that provides two public functions, \m{get} and \m{set}, that are annotated with effects, but the concrete implementation that causes effects are not revealed to the client. This construct ensures that any program that accesses to a value of type \m{Var} is annotated with the correct effect. Therefore we can see that, in a restrictive effect system, it is useful to be able to hide the implementation of a computational effect.  
+In section \ref{sec-state}, we defined a resource type \li{Var} that provides two public functions, \li{get} and \li{set}, that are annotated with effects, but the concrete implementation that causes effects is not revealed to the client. This construction ensures that any program that reads or writes to a value of type \li{Var} is annotated with the correct effect. Therefore we can see that, in a restrictive effect system, it is useful to be able to hide the implementation of a computational effect.  
 
-In this section we will show that this form of implementation hiding is also important for building a modular software with algebraic effects and handlers through an example of mutable state. Mutable state as an algebraic effects is often represented by a \m{state} effect with two operations \m{get} and \m{set}. In this example we assume that our mutable state can store or access a int.
+In this section, we will show that this form of implementation hiding is also important for building modular software with algebraic effects and handlers through an example of mutable state. Mutable state as an algebraic effect is often represented by a \li{state} effect with two operations \li{get} and \li{set}. In this example, we assume that our mutable state can store or access an integer.
 \begin{lstlisting}
 operation get : Unit -> Int
 operation set : Int -> Unit
@@ -18,9 +18,9 @@ handler hstate = {
   set(s; k) -> $\lambda$_:Int. (k ()) s
 }
 \end{lstlisting}
-This handler would transform the handled computation into a lambda expression that receives a state as an argument. In the return clause, the argument is ignored. In the clause handling \m{get},  the state argument is passed into the continuation $k$. Since the continuation $k\ s$ is already transformed into a function that expects a state, we pass $s$ to the computation $k\ s$. The clause for the \m{set} operation is similar except that we ignore the state argument, but pass the argument obtained from the \m{set} operation. 
+This handler would transform the handled computation into a lambda expression that receives a state as an argument. In the return clause, the argument is ignored. In the clause handling \li{get},  the state argument is passed into the continuation $k$. Since the continuation $k\ s$ is already transformed into a function that expects a state, we pass $s$ to the computation $k\ s$. The clause for the \li{set} operation is similar except that we ignore the state argument, but pass the argument obtained from the \li{set} operation. 
 
-Now we consider the module of a single variable introduced in section \ref{sec-state}, where read and write to the variable cannot bypass the effect checking because the implementation details are hidden by the interface \m{Var}. If we would write a similar module in our core calculus, it is natural to extend our calculus with record type and implement the module as following:
+Now we consider the module of a single variable introduced in section \ref{sec-state}, where read and write to the variable cannot bypass the effect checking because the implementation details are hidden by the interface \li{Var}. If we would write a similar module in our core calculus, it is natural to extend our calculus with record type and implement the module as follows:
 \begin{lstlisting}[mathescape=true]
 val var = 
   < read $\hookrightarrow$ $\lambda$x:Unit. get((); y.return y),
@@ -28,7 +28,7 @@ val var =
     handle $\hookrightarrow$  $\lambda$c: Unit $\rightarrow$ {state} Int. (with hstate handle c ()) 0 >
 \end{lstlisting}
 
-The module provides functions \m{read}, \m{write}, and a handler function \m{handle} that determines the semantics for operations in functions \m{read} and \m{write}. However, this encoding of the module \m{var} does not enforce that the operations \m{get} and \m{set} are always handled by the \li{handle} function. In fact, any client that calls function \m{read} and \m{write} can write its own handler to handle the effects. So in order to tackle with this issue, we introduce existential type to define the module:
+The module provides functions \li{read}, \li{write}, and a handler function \li{handle} that determines the semantics for operations in functions \li{read} and \li{write}. However, this encoding of the module \li{var} does not enforce that the operations \li{get} and \li{set} are always handled by the \li{handle} function. In fact, any client that calls function \li{read} and \li{write} can write its own handler to handle the effects. So in order to solve this issue, we introduce existential type to define the module:
 \begin{lstlisting}[mathescape=true]
 val var = 
   pack 
@@ -40,15 +40,15 @@ val var =
                $\times$(write : Int -> {state} Unit) 
                $\times$(handle :  Unit -> {state} Int -> {} Int))
 \end{lstlisting}
-This encoding of module defines an abstract effect \m{state} on top of the effects \m{get} and \m{set}, and export the module as an existential type that hides the definition of effect \m{state}, therefore enforcing that the client of this module can only handle effect \m{state} by calling the \m{handle} function. 
+This encoding of module defines an abstract effect \li{state} on top of the effects \li{get} and \li{set}, and export the module as an existential type that hides the definition of effect \li{state}, therefore enforcing that the client of this module can only handle effect \li{state} by calling the \li{handle} function. 
 
-The embedding design presented in section \ref{sec-core} helps to ensure that the abstraction does not break. Imagine a client of module \m{var} that calls \m{read} and handles it by calling \m{handle}. 
+The embedding design presented in section \ref{sec-core} helps to ensure that the abstraction does not break. Imagine a client of module \li{var} that calls \li{read} and handles it by calling \li{handle}. 
 
 \begin{lstlisting}[mathescape=true]
 open var as (state, v) in (v.handle v.read)
 \end{lstlisting}
 
-In this example, the \m{state} effect in function \m{read} is correctly handled by the handler \m{handle}, and the result of the computation is 0. Note that the abstraction barrier is still preserved if some handler attempts to handle the abstract effect. For example, let handler \m{hget} be a handler that handles effect \m{get}. And the client code uses \m{hget} to handle the effect in method \m{read}. 
+In this example, the \li{state} effect in function \li{read} is correctly handled by the handler \li{handle}, and the result of the computation is 0. Note that the abstraction barrier is still preserved if some handler attempts to handle the abstract effect. For example, let handler \li{hget} be a handler that handles effect \li{get}. And the client code uses \li{hget} to handle the effect in method \li{read}. 
 
 \begin{lstlisting}[mathescape=true]
 handler hget = {
@@ -71,7 +71,7 @@ Our discussion of abstraction of algebraic effects has been focusing exclusively
  
  
 \subsection{Running Example}
-We begin by encoding the running example presented in \citet{melicher20} which demonstrate the key feature of the abstract effects. The original example shows a type and a module implementing the logging facility in the text-editor application, and is shown in figure \ref{fig-logging}. 
+We begin by encoding the running example presented in \citet{melicher20} which demonstrates the key feature of abstract effects. The original example shows a type and a module implementing the logging facility in the text-editor application and is shown in figure \ref{fig-logging}. 
 
 \begin{figure}
 \begin{lstlisting}
@@ -150,16 +150,16 @@ logger : File $\rightarrow$ {} Logger =
   pack ({fRead, fWrite}, $\langle$updateLog$\hookrightarrow \dots \rangle$) as 
     ($\exists$UpdateLog. $\langle$updateLog: String $\rightarrow$ {UpdateLog} Unit$\rangle$)
 \end{lstlisting}
-Again the functor \li{logger} receive a \li{File} and return a \li{Logger}. The functor opens the \li{f} module twice to get the two effect labels \li{fRead} and \li{fWrite} that are exported by \li{f}. Then the \li{logger} returns an existential package that hides the two effect as an abstract effect \li{UpdateLog}. This design achieves effect aggregation by combining the two lower-level effects into one higher-level effect.
+Again the functor \li{logger} receives a \li{File} and returns a \li{Logger}. The functor opens the \li{f} module twice to get the two effect labels \li{fRead} and \li{fWrite} that are exported by \li{f}. Then the \li{logger} returns an existential package that hides the two effect as an abstract effect \li{UpdateLog}. This design achieves effect aggregation by combining the two lower-level effects into one higher-level effect.
 
 
 
 
 \section{Formalization}
 \label{sec-exist}
-In the previous sections, we have introduced the core calculus of abstract algebraic effects via embeddings. However it is  impractical for requiring programmers to explicitly annotate each program components with embeddings. So we present a top level language where the annotations are implicitly added during evaluation of the program.  
+In the previous sections, we have introduced the core calculus of abstract algebraic effects via embeddings. However it is  impractical for requiring programmers to explicitly annotate each program component with embeddings. So we present a top level language where the annotations are implicitly added during the evaluation of the program.  
 
-According to \citet{mitchell88}, there is a correspondence between abstraction data types and existential types. Existential types are often used as a foundation for expressing type abstraction in module systems. The  calculus introduced in this section contains a form of existential type that provide abstraction mechanisms for algebraic effects.  The values that have existential type would generate new agents during evaluation of program and automatically separate program components with different knowledge on effect abstraction, so programmers would not need to explicitly work with agents and embeddings.
+According to \citet{mitchell88}, there is a correspondence between abstract data types and existential types. Existential types are often used as a foundation for expressing type abstraction in module systems. The  calculus introduced in this section contains a form of existential type that provides abstraction mechanisms for algebraic effects.  The values that have existential type would generate new agents during the evaluation of the program and automatically separate program components with different knowledge on effect abstraction, so programmers would not need to explicitly work with agents and embeddings.
 
 \subsection{Syntax}
 \begin{figure}
@@ -181,7 +181,7 @@ According to \citet{mitchell88}, there is a correspondence between abstraction d
 
 Most of the syntax remains the same for our new language. The existential type $\exists f.\ \tau$ is added as an expression type. The intuition of the type is that the value of this type is a value of type $\{\varepsilon/f\}\tau$ for some effect type $\varepsilon$. 
 
-There  are two new forms of expressions: The introduction form of the existential type, $\m{pack} (\varepsilon, e) \m{as} \exists f.\ \tau$ and the elimination form, $\m{open} e \m{as} (f, x) \m{in} e'$. The \li{pack} expression creates existential package that contains an effect type $\varepsilon$ and an expression $e$.  The $\m{open}$ expression opens up an existential package and substitute the expression in the package for the variable $x$.
+There  are two new forms of expressions: The introduction form of the existential type, $\m{pack} (\varepsilon, e) \m{as} \exists f.\ \tau$ and the elimination form, $\m{open} e \m{as} (f, x) \m{in} e'$. The \li{pack} expression creates existential package that contains an effect type $\varepsilon$ and an expression $e$.  The $\m{open}$ expression opens up an existential package and substitutes the expression in the package for the variable $x$.
 
 We only introduce one form of value: the existential package $\m{pack} (\varepsilon, v) \m{as} \exists f.\ \tau$, where the packed expression is already evaluated to a value.
 
@@ -216,7 +216,7 @@ We only introduce one form of value: the existential package $\m{pack} (\varepsi
 }
 \end{figure}
 
-The semantics for existential type $\exists f.\ \tau$  hides the definition of the effect label $f$ from the client of the value of this type. We leverage the our previous design of multi-agent calculus to achieve information hiding. However, the previous design assumes that the type information for each agents are predetermined and does not change during evaluation. Since existential types generate new abstraction boundaries, we need a different semantics that allow agents to be created during evaluation. Therefore, we modify the reduction rule to evaluate a pair that contains both the expression to evaluate and a context of type information. The idea to keep track of type information while evaluating terms was used by \citet{grossman00} to encode parametric polymorphism in their system.
+The semantics for existential type $\exists f.\ \tau$  hides the definition of the effect label $f$ from the client of the value of this type. We leverage  our previous design of multi-agent calculus to achieve information hiding. However, the previous design assumes that the type information for each agents is predetermined and does not change during evaluation. Since existential types generate new abstraction boundaries, we need different semantics that allow agents to be created during evaluation. Therefore, we modify the reduction rule to evaluate a pair that contains both the expression to evaluate and a context of type information. The idea to keep track of type information while evaluating terms was used by \citet{grossman00} to encode parametric polymorphism in their system.
 
 In figure \ref{static-exist}, we show the dynamics semantics for new constructs such as exists and open. In the rules we use the syntax $\Delta_i[f \mapsto \varepsilon]$ to express extending the type map $\Delta_i$ with a new projection from label \li{f} to effect $\varepsilon$.
 
@@ -250,10 +250,10 @@ The reduction rules for remaining terms are not changed by the introduction of $
 }
 \end{figure}
 
-The typing rules also requires the set of type maps, so the judgment have the form $\{\Delta\} \mid \Gamma \vdash e : \tau$
+The typing rules also require the set of type maps, so the judgments have the form $\{\Delta\} \mid \Gamma \vdash e : \tau$
 (T-Pack) assigns the type $\exists f.\ \tau$ to the existential package if the expression $e$ has type $\{\varepsilon/f\}\tau$. The rule (T-Open) assigns the type $\tau'$ to the open expression if $e$ has the existential type $\exists f.\ \tau$ and $e'$ has type $\tau'$ given that the context is extended with variable $x$, and the set of type maps is extended with the effect label $f$. 
 
-Similar to the previous system, type relations ensures the correctness of the type annotation on embeddings. Since we introduced the existential type, we need to add an additional rule to the type relations:
+Similar to the previous system, type relations ensure the correctness of the type annotation on embeddings. Since we introduced the existential type, we need to add an additional rule to the type relations:
 
 $$\infer[(R-Exists)]{\exists f.\ \tau \leq_l \exists f.\ \tau'}{\tau \leq_l \tau'}$$
 
@@ -300,7 +300,7 @@ By induction on the typing rule:
 
 \subsection{Parametric Polymorphism}
 
-We introduced polymorphic effects in chapter \ref{chapter-bound} as a part of our restrictive effect system. However, we did not include  polymorphism in our agent-based core calculus. Parametric polymorphism on effects would significantly increase the expressiveness of the language. For example, in the example of the \m{var} module presented in the previous section, the type of the argument to the \m{handle} function is \m{Unit -> \{state\} Int}. So it restricts the handled computation to only have the \m{state} effect, and is therefore unrealistic as we may want to handle computations with other effects as well. 
+We introduced polymorphic effects in chapter \ref{chapter-bound} as a part of our restrictive effect system. However, we did not include  polymorphism in our agent-based core calculus. Parametric polymorphism on effects would significantly increase the expressiveness of the language. For example, in the example of the \li{var} module presented in the previous section, the type of the argument to the \li{handle} function is \li{Unit -> \{state\} Int}. So it restricts the handled computation to only have the \li{state} effect, and is therefore unrealistic as we may want to handle computations with other effects as well. 
 \begin{lstlisting}[mathescape=true]
 val var = 
   pack 
@@ -338,7 +338,7 @@ module a: A
      b.op()
   \end{lstlisting}
 
-The module \li{a} defines a polymorphic handle function that handles a computation with effect \li{a.E} and a polymorphic effect \li{F}. Since effect \li{a.E} is defined abstract in the type \li{A}, the client of this module should not observe the fact that effect \li{a.E} is equivalent to \li{b.E}. However, the \li{client1} in the following code passes effect \li{b.E} as the polymorphic effect into the \li{handle} function, and because the implementation of  \li{handle} function handles the effect \li{b.E}, the operation \m{b.op} would be handled by \li{a.handle}. So client1 be would surprised by that the effect \li{b.E} is handled, and the desired output is not printed. In comparison, the client2 code passes an unrelated effect \li{c.E} to the handling function, and observes the line ``desired output" is printed. This example illustrates that the clients can actually observe the implementation of the effect \li{a.E}, which is supposed to be opaque.
+The module \li{a} defines a polymorphic handle function that handles a computation with effect \li{a.E} and a polymorphic effect \li{F}. Since effect \li{a.E} is defined abstract in the type \li{A}, the client of this module should not observe the fact that effect \li{a.E} is equivalent to \li{b.E}. However, the \li{client1} in the following code passes effect \li{b.E} as the polymorphic effect into the \li{handle} function, and because the implementation of  \li{handle} function handles the effect \li{b.E}, the operation \m{b.op} would be handled by \li{a.handle}. So client1 be would be surprised by that the effect \li{b.E} is handled, and the desired output is not printed. In comparison, the client2 code passes an unrelated effect \li{c.E} to the handling function and observes the line ``desired output" is printed. This example illustrates that the clients can actually observe the implementation of the effect \li{a.E}, which is supposed to be opaque.
 \begin{lstlisting}
 //Client1: Prints nothing
 handle 
@@ -360,7 +360,7 @@ with
 
 
 \subsection{Effect Bounds}
-As we have shown in chapter \ref{chapter-bound}, effect bounds are a useful tool for making the effect system more expressive. Currently our calculus does not support bounded quantification because its formalization is different from the path-dependent formalization we previously developed to express effect bounds. 
+As we have shown in chapter \ref{chapter-bound}, effect bounds are a useful tool for making the effect system more expressive. Currently, our calculus does not support bounded quantification because its formalization is different from the path-dependent formalization we previously developed to express effect bounds. 
 
 One possible direction to achieve this is through the use of bounded existential types. Because we use existential types to express information hiding on effect types, it is natural to adopt the technique of bounded existential types to achieve the idea of effect bounds. It could be interesting to explore how subeffecting introduced by effect bounds interacts with the mechanism of agent-based type information.
 

@@ -4,11 +4,11 @@
 \label{chapter-bound}
 
 \section{Intuition for Subeffecting}
-Subtyping is used by many programming languages as a mean for making the type system for flexible. The normal intuition of subtyping is that if every value described by the type \li{S} is also described by \li{T}, then \li{S <: T}. The subtyping relation is also often interpreted as a subset relation, that is, if \li{S <: T}, then the elements of \li{S} are a subset of the elements of \li{T}. Type systems incorporates subtyping relation by adding the rule of subsumption:
+Subtyping is used by many programming languages as a means for making the type system flexible. The standard intuition of subtyping is that if every value described by the type \li{S} is also described by \li{T}, then \li{S <: T}. The subtyping relation is also often interpreted as a subset relation, that is, if \li{S <: T}, then the elements of \li{S} are a subset of the elements of \li{T}. Type systems incorporates subtyping relation by adding the rule of subsumption:
 $$\infer{\Gamma \vdash t : T}{\Gamma \vdash t : S & S <: T}$$
-Which states that if a term \li{t} belongs to a type \li{S}, and \li{S} is a subtype if \li{T}, then \li{t} can be used as a value of type \li{T}.
+which states that if a term \li{t} belongs to a type \li{S}, and \li{S} is a subtype if \li{T}, then \li{t} can be used as a value of type \li{T}.
 
-There is a natural way to incorporate the interpretation of subtyping into the Wyvern effect system. Since the effect system describes the set of side effects a program can possibly cause, if one effect \li{E} is a subset of another effect \li{F}, then it is safe to use a term that has effect \li{E} whenever a term of effect \li{F} is expected. We therefore consider the effect \li{E} as a subeffect of the effect \li{F}, due to their similarity to subtyping. To give a concrete example, consider an declaration of a method \li{readFromNetwork}:\\
+There is a natural way to incorporate the interpretation of subtyping into the Wyvern effect system. Since the effect system describes the set of side effects a program can possibly cause, if one effect \li{E} is a subset of another effect \li{F}, then it is safe to use a term that has effect \li{E} whenever a term of effect \li{F} is expected. We therefore consider the effect \li{E} as a subeffect of the effect \li{F}, due to their similarity to subtyping. To give a concrete example, consider a declaration of a method \li{readFromNetwork}:\\
 \begin{minipage}{\linewidth}
 \begin{lstlisting}[xleftmargin=10pt, numbers=none]
 def readFromNetwork() : {network.Read, file.Write} Unit = writeFile()
